@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Claude Code project files (auto-installed skills, local config)
+.claude/
+.agents/
+
 # vercel
 .vercel
 
