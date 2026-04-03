@@ -130,15 +130,34 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_model_per_entity
   WHERE is_active = true;
 
 -- corrections: User corrections submitted via the chatbot while reviewing outputs.
--- Linked to a specific output. Used for the immediate RAG update and monthly fine-tuning.
+-- Linked optionally to a specific output. Used for immediate RAG update (Phase 5)
+-- and monthly fine-tuning (Phase 5, Task 6).
+-- output_id is nullable — corrections can be submitted without referencing a specific output.
+-- message is the raw correction text from the chatbot (not structured field/value pairs).
+-- status lifecycle: 'pending' → 'reviewed' (via Corrections page PATCH).
 CREATE TABLE IF NOT EXISTS client_schema.corrections (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  output_id        UUID NOT NULL REFERENCES client_schema.outputs(id) ON DELETE CASCADE,
-  field            TEXT NOT NULL,           -- The field or line item being corrected
-  original_value   TEXT NOT NULL,           -- What the AI produced
-  corrected_value  TEXT NOT NULL,           -- What the user says it should be
-  status           TEXT NOT NULL DEFAULT 'pending'  -- 'pending' | 'approved' | 'rejected'
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  output_id  UUID,                                -- Optional: links to the output being corrected
+  message    TEXT NOT NULL,                       -- Raw correction text from the chatbot
+  status     TEXT NOT NULL DEFAULT 'pending',     -- 'pending' | 'reviewed'
+  created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- ── Test schema: techsoft_pte_ltd ─────────────────────────────────────────────
+-- Run the following SQL in Supabase SQL editor to create the corrections table
+-- in the existing techsoft_pte_ltd test schema (Phase 5):
+--
+-- CREATE TABLE IF NOT EXISTS techsoft_pte_ltd.corrections (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   output_id UUID,
+--   message TEXT NOT NULL,
+--   status TEXT NOT NULL DEFAULT 'pending',
+--   created_at TIMESTAMPTZ DEFAULT now()
+-- );
+--
+-- GRANT ALL ON techsoft_pte_ltd.corrections TO anon, authenticated, service_role;
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA techsoft_pte_ltd
+--   GRANT ALL ON TABLES TO anon, authenticated, service_role;
 
 -- employees: Employee records used for payroll and CPF computation (Phase 4).
 -- One row per employee per client entity.

@@ -38,6 +38,7 @@ import { checkExemption } from "@/lib/exemptionChecker";
 import { generateFinancialStatements } from "@/lib/fsGenerator";
 import { saveGeneratedFS } from "@/lib/outputStorage";
 import { generateSchemaName } from "@/lib/schemaUtils";
+import { flushLangfuse } from "@/lib/langfuse";
 import {
   EntitySchema,
   FiscalYearSchema,
@@ -269,6 +270,10 @@ export async function POST(req: NextRequest): Promise<Response> {
           timestamp: new Date().toISOString(),
         });
       } finally {
+        // Flush all Langfuse traces before closing the stream.
+        // Must be called here (not inside lib files) so events reach Langfuse
+        // before the HTTP connection closes.
+        await flushLangfuse();
         // Always close the stream when done (success or error)
         controller.close();
       }

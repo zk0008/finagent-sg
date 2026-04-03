@@ -35,6 +35,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getLatestFSOutput } from "@/lib/modelStorage";
 import { suggestAssumptions } from "@/lib/assumptionSuggester";
+import { flushLangfuse } from "@/lib/langfuse";
 
 // Validate the request body shape.
 const RequestSchema = z.object({
@@ -93,6 +94,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 500 }
     );
   }
+
+  // Flush Langfuse traces before returning — events must reach the Langfuse
+  // server before this HTTP response closes.
+  await flushLangfuse();
 
   return NextResponse.json(suggestion, { status: 200 });
 }

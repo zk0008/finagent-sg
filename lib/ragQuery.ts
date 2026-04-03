@@ -17,12 +17,21 @@
  *
  * The embedding model must match the one used during ingestion (ingest.ts).
  * Both use: text-embedding-3-small
+ *
+ * Langfuse tracing (Phase 5):
+ * - An optional parent trace can be passed from the caller (accountClassifier,
+ *   fsGenerator, assumptionSuggester) so RAG spans appear under the parent trace.
+ * - Tracked per call: question, nResults requested, result count, top distance score.
+ * - If no parent is passed, a standalone trace is created.
+ * - flushLangfuse() is called in the API route, not here.
  */
 
 import { embed } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { chromaClient } from "./chromaClient";
 import { type RagResult } from "./schemas";
+import { getLangfuse } from "./langfuse";
+import type { LangfuseTraceClient } from "langfuse";
 
 // Must match the model used in scripts/ingest.ts
 const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -34,14 +43,28 @@ const COLLECTION_NAME = "sfrs_knowledge";
  *
  * @param question - The natural language question to search for
  * @param nResults - Number of results to return (default: 5)
+ * @param parentTrace - Optional Langfuse trace to attach the span to
  * @returns Array of RagResult, ordered by ascending distance (most relevant first)
  *
  * Returns an empty array if the collection is empty or ChromaDB is unreachable.
  */
 export async function ragQuery(
   question: string,
-  nResults: number = 5
+  nResults: number = 5,
+  parentTrace?: LangfuseTraceClient
 ): Promise<RagResult[]> {
+  // ── Langfuse: open span for this RAG query ─────────────────────────────────
+  // Uses a span (not a generation) because ChromaDB is not an LLM call.
+  // Tracks latency, how many results were retrieved, and the top similarity score.
+  // If a parent trace is provided, this span is a child of it (e.g. under
+  // account_classification or fs_generation). Otherwise, a standalone trace is used.
+  const langfuse = getLangfuse();
+  const traceForSpan = parentTrace ?? langfuse.trace({ name: "rag_query_standalone" });
+  const span = traceForSpan.span({
+    name: "rag_query",
+    input: { question, nResults },
+  });
+
   // Step 1: Embed the question using the same model used during ingestion.
   // This converts the question into the same vector space as the stored chunks,
   // so similarity search finds semantically related content (not just keyword matches).
@@ -90,6 +113,14 @@ export async function ragQuery(
       distance: distances[i] ?? 1,
     });
   }
+
+  // ── Langfuse: close span with retrieval summary ────────────────────────────
+  span.end({
+    output: {
+      result_count: ragResults.length,
+      top_distance: ragResults[0]?.distance ?? null,
+    },
+  });
 
   return ragResults;
 }

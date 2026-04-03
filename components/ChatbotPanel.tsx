@@ -6,21 +6,24 @@
  * This chatbot serves as the correction and training interface:
  * - Users submit corrections while reviewing generated outputs
  * - Users upload training documents (SFRS standards, working papers, guides)
- * - Users report issues with AI-generated content
  * - Users ask accounting questions
  *
- * When fully built (Phase 2+), corrections will:
- * 1. Immediately update the ChromaDB RAG knowledge base
- * 2. Be accumulated for monthly fine-tuning of the LLM
- *
- * Phase 1 additions:
+ * Phase 1:
  * - "Upload training doc" button wired to POST /api/ingest
  * - Accepts .txt and .pdf files; displays result as a system message
  *
- * Still disabled in Phase 1:
- * - Send button (useChat hook added in Phase 2)
- * - Text input (AI chat wired in Phase 2)
- * - Correction logging (Supabase write added in Phase 2)
+ * Phase 5:
+ * - Send button wired to POST /api/chat
+ * - Corrections (containing keywords like "should be", "wrong", etc.) are saved
+ *   to Supabase and immediately ingested into ChromaDB
+ * - General questions are answered by GPT-4.1-mini + RAG
+ * - schemaName is passed with every message so the server knows which client
+ *   schema to write corrections to
+ *
+ * Props:
+ * - schemaName: string — the client schema name (e.g. "techsoft_pte_ltd")
+ *   Derived from company name in WorkflowPanel and passed down.
+ *   Defaults to "default" when no company is selected.
  */
 
 "use client";
@@ -37,7 +40,12 @@ interface ChatMessage {
   content: string;
 }
 
-// Static placeholder messages carried over from Phase 0 for UI context
+// Props
+interface ChatbotPanelProps {
+  schemaName?: string;
+}
+
+// Initial messages shown on load — Phase 0 placeholder examples
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     role: "user",
@@ -51,22 +59,24 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-export function ChatbotPanel() {
-  // Controlled state for text input — send action wired in Phase 2
+export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
+  // Controlled state for text input
   const [inputValue, setInputValue] = useState("");
 
-  // Message history — starts with the Phase 0 placeholder, grows as documents are uploaded
+  // Message history — starts with placeholder examples
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
 
   // Upload state
   const [isUploading, setIsUploading] = useState(false);
+
+  // Sending state — disables Send button while the API call is in flight
+  const [isSending, setIsSending] = useState(false);
 
   // Hidden file input — triggered programmatically when the button is clicked
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /**
    * Appends a message to the chat display.
-   * Used to show upload progress and results inline in the chatbot panel.
    */
   function appendMessage(role: MessageRole, content: string) {
     setMessages((prev) => [...prev, { role, content }]);
@@ -75,18 +85,13 @@ export function ChatbotPanel() {
   /**
    * Handles file selection from the hidden input.
    * POSTs the file to /api/ingest and shows the result as a system message.
-   *
-   * Only .txt and .pdf are accepted — the API route also validates this,
-   * but we do a fast client-side check first to avoid an unnecessary request.
    */
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset the input so the same file can be re-uploaded if needed
     e.target.value = "";
 
-    // Client-side file type guard — mirrors the server-side check in /api/ingest
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext !== "txt" && ext !== "pdf") {
       appendMessage(
@@ -96,7 +101,6 @@ export function ChatbotPanel() {
       return;
     }
 
-    // Show an uploading indicator in the chat
     appendMessage("system", `⏳ Uploading '${file.name}'…`);
     setIsUploading(true);
 
@@ -117,18 +121,64 @@ export function ChatbotPanel() {
           `✅ '${result.filename}' ingested — ${result.chunks} chunks added to the knowledge base.`
         );
       } else {
-        appendMessage(
-          "system",
-          `❌ Upload failed: ${result.error}`
-        );
+        appendMessage("system", `❌ Upload failed: ${result.error}`);
       }
-    } catch (err) {
+    } catch {
       appendMessage(
         "system",
         `❌ Network error — could not reach /api/ingest. Is the server running?`
       );
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  /**
+   * Handles Send button click.
+   * POSTs the message to /api/chat with the current schemaName.
+   * Displays the user message immediately, then the assistant reply when it arrives.
+   */
+  async function handleSend() {
+    const message = inputValue.trim();
+    if (!message || isSending) return;
+
+    // Show user message immediately
+    appendMessage("user", message);
+    setInputValue("");
+    setIsSending(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, schemaName }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        appendMessage("system", `❌ Error: ${result.error ?? "Unknown error"}`);
+        return;
+      }
+
+      appendMessage("assistant", result.message);
+    } catch {
+      appendMessage(
+        "system",
+        `❌ Network error — could not reach /api/chat. Is the server running?`
+      );
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  /**
+   * Allows submitting with Ctrl+Enter (Cmd+Enter on Mac).
+   */
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
     }
   }
 
@@ -139,19 +189,13 @@ export function ChatbotPanel() {
       <div className="mb-4">
         <h2 className="text-sm font-medium">Training &amp; Feedback Chatbot</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Submit corrections · Upload training documents · Report issues · Ask accounting questions
+          Submit corrections · Upload training documents · Ask accounting questions
         </p>
       </div>
 
       <Separator className="mb-4" />
 
       {/* ── Message display area ── */}
-      {/*
-       * Phase 1: Displays static placeholder messages + upload result system messages.
-       * Phase 2: This will be replaced with the useChat hook from Vercel AI SDK:
-       *   const { messages, input, handleSubmit } = useChat({ api: '/api/chat' });
-       * Messages will stream in real-time via the Vercel AI SDK streaming protocol.
-       */}
       <div className="flex-1 space-y-4 overflow-y-auto mb-4">
         {messages.map((msg, idx) => (
           <div
@@ -181,10 +225,7 @@ export function ChatbotPanel() {
 
       {/* ── Input area ── */}
       <div className="space-y-2">
-        {/*
-         * Hidden file input — accepts .txt and .pdf only.
-         * Triggered by the visible "Upload training doc" button below.
-         */}
+        {/* Hidden file input for training doc upload */}
         <input
           ref={fileInputRef}
           type="file"
@@ -193,11 +234,7 @@ export function ChatbotPanel() {
           onChange={handleFileSelected}
         />
 
-        {/*
-         * "Upload training doc" button — now active in Phase 1.
-         * Clicks the hidden file input to open the OS file picker.
-         * Accepted: .txt and .pdf → POST to /api/ingest → ChromaDB storage.
-         */}
+        {/* Upload button — unchanged from Phase 1 */}
         <Button
           variant="outline"
           size="sm"
@@ -208,17 +245,22 @@ export function ChatbotPanel() {
           {isUploading ? "Uploading…" : "Upload training doc"}
         </Button>
 
-        {/* Message input + send — send action wired in Phase 2 */}
+        {/* Message input + Send */}
         <div className="flex gap-2">
           <Textarea
-            placeholder="Type message… (chat active in Phase 2)"
+            placeholder="Ask a question or submit a correction (Ctrl+Enter to send)"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            className="resize-none min-h-[60px]"
-            disabled
+            onKeyDown={handleKeyDown}
+            className="resize-none min-h-24"
+            disabled={isSending}
           />
-          <Button disabled className="self-end">
-            Send
+          <Button
+            onClick={handleSend}
+            disabled={isSending || !inputValue.trim()}
+            className="self-end"
+          >
+            {isSending ? "…" : "Send"}
           </Button>
         </div>
       </div>

@@ -6,6 +6,7 @@
  * This module is imported by:
  *   - scripts/ingest.ts  — CLI script for bulk ingestion from docs/knowledge/
  *   - app/api/ingest/route.ts — API route for chatbot "Upload training doc" button
+ *   - app/api/chat/route.ts — API route for chatbot corrections (Phase 5)
  *
  * Separating the logic here means the CLI script's main() is never executed
  * when Next.js imports this module during build or page-data collection.
@@ -16,8 +17,13 @@
  * 3. Embeds each chunk via OpenAI text-embedding-3-small (Vercel AI SDK)
  * 4. Stores embeddings + metadata in the ChromaDB `sfrs_knowledge` collection
  *
+ * What ingestText() does (Phase 5):
+ * Ingests a plain text string directly (no file read step).
+ * Used by the chat route to immediately add corrections to the RAG knowledge base.
+ * Chunks, embeds, and stores the text with metadata topic = "correction".
+ *
  * Metadata stored per chunk: { source_file, chunk_index, topic }
- * The `topic` field is the filename without extension.
+ * The `topic` field is the filename without extension (for files) or "correction" (for text).
  */
 
 import * as fs from "fs";
@@ -139,6 +145,69 @@ export async function ingestFile(filePath: string): Promise<number> {
     const ids = batchIndexes.map((i) => `${filename}::chunk_${i}`);
     const metadatas = batchIndexes.map((i) => ({
       source_file: filename,
+      chunk_index: i,
+      topic,
+    }));
+
+    await collection.add({
+      ids,
+      embeddings: embeddings as number[][],
+      documents: batchChunks,
+      metadatas,
+    });
+
+    totalIngested += batchChunks.length;
+  }
+
+  return totalIngested;
+}
+
+/**
+ * Ingests a plain text string directly into the ChromaDB `sfrs_knowledge` collection.
+ *
+ * Used by the chat correction route (app/api/chat/route.ts) to immediately
+ * add user corrections to the RAG knowledge base so the next FS generation
+ * reflects the correction without requiring a file upload.
+ *
+ * @param text     - The correction or knowledge text to ingest
+ * @param sourceId - A unique identifier for this text (e.g. "correction::<uuid>")
+ * @param topic    - Human-readable topic label (default: "correction")
+ * @returns Number of chunks ingested (0 if text is empty)
+ * @throws If ChromaDB is unreachable or the OpenAI embedding call fails.
+ */
+export async function ingestText(
+  text: string,
+  sourceId: string,
+  topic: string = "correction"
+): Promise<number> {
+  if (!text || text.trim().length === 0) {
+    return 0;
+  }
+
+  // Split into chunks using the same parameters as ingestFile
+  const chunks = await splitter.splitText(text);
+  if (chunks.length === 0) return 0;
+
+  // Get or create the ChromaDB collection
+  const collection = await chromaClient.getOrCreateCollection({
+    name: COLLECTION_NAME,
+  });
+
+  let totalIngested = 0;
+
+  // Embed and store in batches
+  for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+    const batchChunks = chunks.slice(batchStart, batchStart + BATCH_SIZE);
+    const batchIndexes = batchChunks.map((_, i) => batchStart + i);
+
+    const { embeddings } = await embedMany({
+      model: openai.embedding(EMBEDDING_MODEL),
+      values: batchChunks,
+    });
+
+    const ids = batchIndexes.map((i) => `${sourceId}::chunk_${i}`);
+    const metadatas = batchIndexes.map((i) => ({
+      source_file: sourceId,
       chunk_index: i,
       topic,
     }));

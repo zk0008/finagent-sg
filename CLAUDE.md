@@ -21,8 +21,8 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 | Phase 2 | FS Preparation Agent — Excel parsing, AI + RAG, PDF output | **Complete** |
 | Phase 3 | Financial Model Agent — projections, scenarios | **Complete** |
 | Phase 4 | Payroll & CPF Agent | **Complete** |
-| Phase 5 | Continuous Improvement — fine-tuning, Langfuse | **Next** |
-| Phase 6 | Polish & Deploy | Not started |
+| Phase 5 | Continuous Improvement — fine-tuning, Langfuse | **Complete** |
+| Phase 6 | Polish & Deploy | **Next** |
 
 **Do not build ahead of the current phase without explicit instruction.**
 
@@ -60,14 +60,14 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 
 ## What NOT to do
 
-- No fine-tuning setup until Phase 5
-- No Langfuse observability until Phase 5
+- No new Langfuse instrumentation until explicitly requested
+- No fine-tuning trigger until explicitly requested
 - No GST, corporate tax, or consolidation (future features)
 - **Do not modify Phase 0 or Phase 1 files unless strictly necessary — ask the user first**
 
 ---
 
-## Project Structure (Phase 4 complete)
+## Project Structure (Phase 5 complete)
 
 ```
 finagent-sg/
@@ -132,7 +132,9 @@ finagent-sg/
 ├── scripts/
 │   ├── ingest.ts                   # Phase 1: bulk RAG ingestion CLI
 │   ├── testRag.ts                  # Phase 1: RAG test script
-│   └── createSampleTrialBalance.ts # Phase 2: creates docs/samples/sample_trial_balance.xlsx
+│   ├── createSampleTrialBalance.ts # Phase 2: creates docs/samples/sample_trial_balance.xlsx
+│   ├── exportTrainingData.ts       # Phase 5: export reviewed corrections as JSONL
+│   └── runFineTuning.ts            # Phase 5: upload JSONL + create fine-tuning job
 ├── skills/
 │   ├── sg-accounting-standards/SKILL.md  # Phase 2: SG accounting rules
 │   └── sg-payroll-cpf/SKILL.md           # Phase 4: CPF rates + payroll rules (1 Jan 2026)
@@ -140,11 +142,15 @@ finagent-sg/
 ├── supabase/schema.sql
 ├── docs/
 │   ├── knowledge/                  # SFRS PDFs for RAG ingestion
-│   └── samples/
-│       └── sample_trial_balance.xlsx  # Phase 2: 41-account sample (balanced, SGD 1,207,800)
+│   ├── samples/
+│   │   └── sample_trial_balance.xlsx  # Phase 2: 41-account sample (balanced, SGD 1,207,800)
+│   └── training/
+│       └── README.txt              # Phase 5: fine-tuning instructions
 ├── auth.ts
 ├── middleware.ts
 ├── proxy.ts
+├── docker-compose.yml              # Phase 5: Langfuse + ChromaDB infrastructure
+├── docker-compose.env.example      # Phase 5: Docker secrets template
 └── .env.local
 ```
 
@@ -158,8 +164,7 @@ finagent-sg/
 - PDF `formatAmount` uses native `toLocaleString` for display-only formatting (not financial arithmetic) — this is acceptable since bignumber.js handles all calculation.
 - XBRL output is JSON tags only — full XBRL XML generation for ACRA BizFile+ is a future feature, ask user before building.
 
-### Deferred / Phase 5+
-- Langfuse observability (Phase 5)
+### Deferred / Phase 6+
 - XBRL XML full generation for ACRA BizFile+ (future)
 - Financial model history tab (explicitly deferred — not in Phase 3 scope)
 - Charts/graphs in model dashboard (explicitly deferred — tables only in Phase 3)

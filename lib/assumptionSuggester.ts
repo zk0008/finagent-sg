@@ -21,6 +21,14 @@
  * - No arithmetic is performed here — this module only suggests inputs for the
  *   projection engine (lib/projectionEngine.ts).
  *
+ * Langfuse tracing (Phase 5):
+ * - One trace per suggestAssumptions() call ("assumption_suggestion").
+ * - One child span for the RAG query (via ragQuery() with parent trace).
+ * - One child generation for the GPT-4.1-mini assumption call.
+ * - Tracks: model, input (account summaries + RAG context), output
+ *   (assumptions + rationales), token usage.
+ * - flushLangfuse() is called in app/api/model/suggest-assumptions/route.ts, not here.
+ *
  * Called by: app/api/model/suggest-assumptions/route.ts (Phase 3, Prompt 5).
  */
 
@@ -34,10 +42,12 @@ import {
   type ProjectionAssumptions,
   type ClassifiedAccount,
 } from "./schemas";
+import { MODEL_ROUTES } from "./modelRouter";
+import { getLangfuse } from "./langfuse";
 
-// GPT-4.1-mini: suggestions do not need full GPT-4.1 accuracy.
-// The user always reviews and confirms before the engine runs.
-const SUGGESTION_MODEL = "gpt-4.1-mini";
+// Model sourced from centralised router (Phase 5).
+// Previously hardcoded as "gpt-4.1-mini".
+const SUGGESTION_MODEL = MODEL_ROUTES.assumption_suggestion;
 
 // Singapore corporate tax rate (standard flat rate).
 // Small companies qualifying for partial exemption pay an effective rate
@@ -145,6 +155,16 @@ export async function suggestAssumptions(
 ): Promise<AssumptionSuggestion> {
   const { classifiedAccounts, companyType, isAuditExempt } = params;
 
+  // ── Langfuse: open parent trace for this suggestion run ────────────────────
+  // One trace per suggestAssumptions() call.
+  // The RAG span and the AI generation are both children of this trace.
+  // flushLangfuse() is called in app/api/model/suggest-assumptions/route.ts.
+  const langfuse = getLangfuse();
+  const trace = langfuse.trace({
+    name: "assumption_suggestion",
+    input: { account_count: classifiedAccounts.length, companyType, isAuditExempt },
+  });
+
   // Step 1: Build compact account summary (no individual line items).
   const accountSummary = buildAccountSummary(classifiedAccounts);
 
@@ -157,8 +177,8 @@ export async function suggestAssumptions(
     revenue > 0 ? (((revenue - totalExpense) / revenue) * 100).toFixed(1) : "N/A";
 
   // Step 2: RAG — retrieve Singapore economic and tax context.
-  // Returns empty array gracefully if ChromaDB has no relevant chunks.
-  const ragResults = await ragQuery(RAG_QUERY_ASSUMPTION, 4);
+  // Pass the parent trace so the RAG span appears under assumption_suggestion in Langfuse.
+  const ragResults = await ragQuery(RAG_QUERY_ASSUMPTION, 4, trace);
   const ragContext =
     ragResults.length > 0
       ? ragResults.map((r) => r.text).join("\n\n---\n\n")
@@ -171,11 +191,7 @@ export async function suggestAssumptions(
     ? `This is a small company qualifying for Singapore's partial tax exemption. Standard rate is ${SG_CORPORATE_TAX_RATE}% but effective rate on first SGD 200,000 chargeable income is approximately ${SG_SMALL_COMPANY_EFFECTIVE_TAX_RATE}%. Suggest a blended rate appropriate for a small company.`
     : `Standard Singapore corporate tax rate is ${SG_CORPORATE_TAX_RATE}%. Suggest ${SG_CORPORATE_TAX_RATE}% unless there is a specific reason to deviate.`;
 
-  // Step 3: Call GPT-4.1-mini with account summary + RAG context.
-  const { object: aiSuggestion } = await generateObject({
-    model: openai(SUGGESTION_MODEL),
-    schema: AISuggestionSchema,
-    system: `You are a Singapore-qualified chartered accountant helping a client build a 3–5 year financial model.
+  const systemPrompt = `You are a Singapore-qualified chartered accountant helping a client build a 3–5 year financial model.
 Your task is to suggest reasonable projection assumptions based on the company's current financial position and Singapore economic context.
 
 Rules:
@@ -186,8 +202,9 @@ Rules:
 - Depreciation method: prefer straight_line for most assets; reducing_balance for technology assets that lose value quickly.
 - Tax rate: Singapore corporate tax is ${SG_CORPORATE_TAX_RATE}%. Use ${SG_CORPORATE_TAX_RATE} unless partial exemption applies.
 - Provide exactly one rationale sentence per field — concise, factual, specific to this company's numbers.
-- Do NOT suggest negative growth unless the numbers clearly indicate a declining business.`,
-    prompt: `Company profile:
+- Do NOT suggest negative growth unless the numbers clearly indicate a declining business.`;
+
+  const userPrompt = `Company profile:
 - Type: ${companyType}
 - Audit exempt (small company): ${isAuditExempt}
 - Implied net margin: ${impliedNetMarginPct}%
@@ -207,7 +224,27 @@ ${taxRateHint}
 Singapore economic context (from knowledge base):
 ${ragContext}
 
-Suggest projection assumptions for this company. For each assumption, provide the value and a one-sentence rationale.`,
+Suggest projection assumptions for this company. For each assumption, provide the value and a one-sentence rationale.`;
+
+  // ── Langfuse: generation for the assumption suggestion call ────────────────
+  const generation = trace.generation({
+    name: "suggest_assumptions",
+    model: SUGGESTION_MODEL,
+    input: { system: systemPrompt, user: userPrompt },
+  });
+
+  // Step 3: Call GPT-4.1-mini with account summary + RAG context.
+  const { object: aiSuggestion, usage } = await generateObject({
+    model: openai(SUGGESTION_MODEL),
+    schema: AISuggestionSchema,
+    system: systemPrompt,
+    prompt: userPrompt,
+  });
+
+  // ── Langfuse: close generation with output + token usage ───────────────────
+  generation.end({
+    output: aiSuggestion,
+    usage: { input: usage.inputTokens, output: usage.outputTokens, total: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) },
   });
 
   // Step 4: Build the validated ProjectionAssumptions object.
@@ -229,6 +266,9 @@ Suggest projection assumptions for this company. For each assumption, provide th
     depreciation_method: aiSuggestion.depreciation_method_rationale,
     tax_rate_pct: aiSuggestion.tax_rate_rationale,
   };
+
+  // ── Langfuse: close parent trace ───────────────────────────────────────────
+  trace.update({ output: { assumptions } });
 
   return { assumptions, rationales };
 }

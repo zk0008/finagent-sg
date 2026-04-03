@@ -15,6 +15,13 @@
  * - The LLM returns structured JSON parsed via Zod — it never computes numbers.
  * - Accounts are classified one at a time to isolate errors per line.
  *
+ * Langfuse tracing (Phase 5):
+ * - One trace per classifyAccounts() call ("account_classification").
+ * - One child generation per account — tracks model, input prompt, output
+ *   (sfrs_category + confidence), and token usage.
+ * - One child span per ragQuery() call — see lib/ragQuery.ts.
+ * - flushLangfuse() is called in the API route, not here.
+ *
  * Called by: trigger/fsGenerationJob.ts (Task 6) in Step 2 of the pipeline.
  */
 
@@ -28,10 +35,12 @@ import {
   type TrialBalanceLine,
   type ClassifiedAccount,
 } from "./schemas";
+import { MODEL_ROUTES } from "./modelRouter";
+import { getLangfuse } from "./langfuse";
 
-// GPT-4.1-mini: cost-efficient for repetitive classification tasks.
-// Accuracy is sufficient because RAG provides authoritative SFRS rules in context.
-const CLASSIFICATION_MODEL = "gpt-4.1-mini";
+// Model sourced from centralised router (Phase 5).
+// Previously hardcoded as "gpt-4.1-mini".
+const CLASSIFICATION_MODEL = MODEL_ROUTES.account_classification;
 
 // RAG query used to retrieve SFRS account classification rules.
 // This is fixed per call — we want the same SFRS rules for every account.
@@ -47,11 +56,20 @@ const SFRS_CLASSIFICATION_QUERY =
 export async function classifyAccounts(
   lines: TrialBalanceLine[]
 ): Promise<ClassifiedAccount[]> {
+  // ── Langfuse: open parent trace for this classification run ────────────────
+  // One trace per classifyAccounts() call — contains one generation per account.
+  // flushLangfuse() is called in app/api/generate-fs/route.ts, not here.
+  const langfuse = getLangfuse();
+  const trace = langfuse.trace({
+    name: "account_classification",
+    input: { account_count: lines.length },
+  });
+
   // Step 1: Retrieve SFRS classification rules from the RAG knowledge base.
   // We fetch these once (not per account) since the same rules apply to all accounts.
   // RAG context is injected into the system prompt so the model has authoritative
   // Singapore accounting standards to reference when classifying each account.
-  const ragResults = await ragQuery(SFRS_CLASSIFICATION_QUERY, 8);
+  const ragResults = await ragQuery(SFRS_CLASSIFICATION_QUERY, 8, trace);
 
   const ragContext =
     ragResults.length > 0
@@ -97,9 +115,19 @@ Credit balance: ${line.credit.toFixed(2)}
 
 Determine the correct SFRS category and your confidence level.`;
 
+    // ── Langfuse: open generation for this account ─────────────────────────
+    // Tracks the AI call for each account individually so per-account
+    // latency, token cost, and classification confidence are visible.
+    const generation = trace.generation({
+      name: "classify_account",
+      model: CLASSIFICATION_MODEL,
+      input: { system: systemPrompt, user: userPrompt },
+      metadata: { account_code: line.account_code, account_name: line.account_name },
+    });
+
     // Step 4: Call GPT-4.1-mini with structured output.
     // generateObject enforces the response schema via JSON mode — no parsing errors.
-    const { object } = await generateObject({
+    const { object, usage } = await generateObject({
       model: openai(CLASSIFICATION_MODEL),
       system: systemPrompt,
       prompt: userPrompt,
@@ -107,6 +135,16 @@ Determine the correct SFRS category and your confidence level.`;
         sfrs_category: SfrsCategoryEnum,
         confidence: z.number().min(0).max(1),
       }),
+    });
+
+    // ── Langfuse: close generation with output + token usage ───────────────
+    generation.end({
+      output: object,
+      usage: {
+        input: usage.inputTokens,
+        output: usage.outputTokens,
+        total: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+      },
     });
 
     // Step 5: Merge the AI output with the original line data and validate via Zod.
@@ -135,6 +173,9 @@ Determine the correct SFRS category and your confidence level.`;
       classified.push(parseResult.data);
     }
   }
+
+  // ── Langfuse: close parent trace ───────────────────────────────────────────
+  trace.update({ output: { classified_count: classified.length } });
 
   return classified;
 }

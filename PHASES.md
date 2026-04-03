@@ -420,3 +420,73 @@ Note: The exact skill names in the blueprint (`frontend-design`, `nextjs-perform
 - Payslip zip download (download all in one file) — requires a zip library not yet in stack
 - CPF e-Submit comment header stripping — portal may need clean CSV without `#` lines
 
+---
+
+## Phase 5 — Continuous Improvement Pipeline
+**Status:** Complete
+**Date completed:** 2026-04-03
+
+### Files Built
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Langfuse (web + worker) + PostgreSQL + ChromaDB — all local infra in one compose |
+| `docker-compose.env.example` | Docker secrets template (copy to docker-compose.env and fill in) |
+| `lib/langfuse.ts` | Singleton Langfuse client + `flushLangfuse()` helper |
+| `lib/modelRouter.ts` | Centralised model routing — `MODEL_ROUTES` constant for all AI tasks |
+| `app/api/chat/route.ts` | POST /api/chat — correction detection + RAG-answered questions |
+| `app/api/corrections/route.ts` | GET corrections list + PATCH status to "reviewed" |
+| `app/corrections/page.tsx` | Correction review interface — filter by status, mark as reviewed |
+| `scripts/exportTrainingData.ts` | Export reviewed corrections as OpenAI fine-tuning JSONL |
+| `scripts/runFineTuning.ts` | Upload JSONL + create fine-tuning job (CLI, not triggered automatically) |
+| `docs/training/README.txt` | Fine-tuning instructions: when, how, how to activate |
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `lib/accountClassifier.ts` | Langfuse trace + generation per account; MODEL_ROUTES.account_classification |
+| `lib/fsGenerator.ts` | Langfuse parent trace + 5 child generations; MODEL_ROUTES.fs_generation |
+| `lib/assumptionSuggester.ts` | Langfuse trace + generation; MODEL_ROUTES.assumption_suggestion |
+| `lib/ragQuery.ts` | Langfuse span per RAG query; optional parent trace param |
+| `lib/ingest.ts` | Added `ingestText()` for direct text ingestion (used by chat corrections) |
+| `components/ChatbotPanel.tsx` | Send button wired to POST /api/chat; schemaName prop added |
+| `components/BottomNav.tsx` | Added "Corrections" link between History and Settings |
+| `supabase/schema.sql` | Updated corrections table: nullable output_id, message field, created_at |
+| `app/api/generate-fs/route.ts` | Added `flushLangfuse()` in SSE stream finally block |
+| `app/api/model/suggest-assumptions/route.ts` | Added `flushLangfuse()` before response |
+| `.env.example` | Added LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST |
+| `.gitignore` | Added docker-compose.env, docs/training/training_data.jsonl |
+| `CLAUDE.md` | Phase 5 → Complete; Phase 6 → Next; project structure updated |
+
+### Packages Installed
+| Package | Purpose |
+|---------|---------|
+| `langfuse` | Langfuse TypeScript SDK for observability |
+| `openai` | OpenAI SDK for fine-tuning script (Files API + Jobs API) |
+
+### Decisions
+| Decision | Reason |
+|----------|--------|
+| Vercel AI SDK v6 uses `inputTokens`/`outputTokens` (not `promptTokens`/`completionTokens`) | AI SDK 6.x renamed these fields — discovered via TypeScript check |
+| Langfuse `flushAt: 1` in singleton | Server-side Next.js process may not survive long enough for background flush; flush immediately |
+| `flushLangfuse()` in API route, not lib files | Lib files don't know when the HTTP response is closing; route is the correct place to flush |
+| ragQuery accepts optional parent trace | Allows RAG spans to appear under the calling trace (fs_generation, account_classification) without requiring function signature changes that would break callers |
+| ChatbotPanel sends schemaName with every message | API route needs to know which client schema to write corrections to |
+| Corrections table: nullable output_id, message field | Chatbot sends raw message strings — not structured field/original/corrected; output_id optional for standalone corrections |
+| Fine-tuning scripts are CLI-only, not triggered automatically | Phase 5 requirement: build infrastructure, do not trigger; triggering is a Phase 6 decision |
+| exportTrainingData reads information_schema to discover schemas | Avoids hardcoding schema names; works for any client |
+| docker-compose.env gitignored; docker-compose.env.example committed | Secrets never in git; example shows all required variables |
+
+### Deviations from Blueprint
+| Deviation | Reason |
+|-----------|--------|
+| corrections table schema differs from Phase 0 template | Phase 0 had structured field/original/corrected; Phase 5 chatbot sends raw messages — simpler schema is correct for the use case |
+| `openai` npm package added to project | Fine-tuning script requires OpenAI Files + FineTuning API directly; Vercel AI SDK does not expose these |
+
+### Open Items (deferred)
+- Activate fine-tuned model in MODEL_ROUTES — ask user after fine-tuning completes
+- Wire `ChatbotPanel` schemaName from WorkflowPanel (currently defaults to "default") — ask user
+- XBRL XML full generation for ACRA BizFile+ (future)
+- Financial model history tab (explicitly deferred — not in Phase 3 scope)
+- Charts/graphs in model dashboard (explicitly deferred — tables only)
+- FWL, YTD OW, payslip zip, CPF CSV stripping — carried from Phase 4
+

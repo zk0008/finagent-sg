@@ -17,6 +17,15 @@
  * Uses GPT-4.1 (not mini) because financial statement accuracy is critical —
  * errors in FS structure can cause ACRA filing rejections.
  *
+ * Langfuse tracing (Phase 5):
+ * - One parent trace "fs_generation" wraps the entire generateFinancialStatements() call.
+ * - Each of the 5 AI steps is a separate child generation under the parent trace.
+ * - Step names: "generate_balance_sheet", "generate_profit_and_loss",
+ *   "generate_cash_flow", "generate_equity_statement", "generate_notes".
+ * - Each generation tracks: model, prompt (system + user), output, token usage.
+ * - The RAG query in generateNotes() also creates a child span via ragQuery().
+ * - flushLangfuse() is called in app/api/generate-fs/route.ts, not here.
+ *
  * Called by: trigger/fsGenerationJob.ts (Task 6) in Step 4 of the pipeline.
  */
 
@@ -33,9 +42,13 @@ import {
   formatSGD,
 } from "./calculationEngine";
 import { FSOutputSchema, type FSGeneratorInput, type FSOutput } from "./schemas";
+import { MODEL_ROUTES } from "./modelRouter";
+import { getLangfuse } from "./langfuse";
+import type { LangfuseTraceClient } from "langfuse";
 
-// GPT-4.1 for FS generation — accuracy is critical here, cost is secondary.
-const FS_MODEL = "gpt-4.1";
+// Model sourced from centralised router (Phase 5).
+// Previously hardcoded as "gpt-4.1".
+const FS_MODEL = MODEL_ROUTES.fs_generation;
 
 /**
  * Generates the full financial statement package for a Singapore entity.
@@ -55,6 +68,20 @@ export async function generateFinancialStatements(
   input: FSGeneratorInput
 ): Promise<FSOutput> {
   const { entity, fiscal_year, classified_accounts, exemption_result } = input;
+
+  // ── Langfuse: open parent trace for the full FS pipeline ──────────────────
+  // All 5 AI steps are child generations of this single trace so you can see
+  // the total token cost, latency per step, and end-to-end pipeline time.
+  const langfuse = getLangfuse();
+  const trace = langfuse.trace({
+    name: "fs_generation",
+    input: {
+      entity_name: entity.name,
+      uen: entity.uen,
+      fye: fiscal_year.end_date,
+      account_count: classified_accounts.length,
+    },
+  });
 
   // ── Pre-compute all figures using the Calculation Engine ──────────────────
   // The AI receives these pre-computed totals. It never does arithmetic.
@@ -101,6 +128,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
   // AI structures the layout and labels; Calculation Engine provides all figures.
   // The AI is given pre-computed totals so it only needs to decide presentation.
   const balanceSheet = await generateBalanceSheet({
+    trace,
     entityContext,
     currentAssets,
     nonCurrentAssets,
@@ -117,6 +145,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
   // ── Step 2: Profit & Loss Statement ──────────────────────────────────────
   // AI structures the P&L layout; Calculation Engine provided revenue, expenses, net profit.
   const profitAndLoss = await generateProfitAndLoss({
+    trace,
     entityContext,
     revenue,
     expenses,
@@ -129,6 +158,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
   // AI applies the indirect method structure; Calculation Engine provides the figures.
   // Indirect method: starts from net profit, adjusts for non-cash items and working capital.
   const cashFlow = await generateCashFlow({
+    trace,
     entityContext,
     netProfit,
     accounts: classified_accounts,
@@ -138,6 +168,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
   // ── Step 4: Statement of Changes in Equity ────────────────────────────────
   // AI structures the movement table; Calculation Engine provides opening/closing balances.
   const equityStatement = await generateEquityStatement({
+    trace,
     entityContext,
     openingRetainedEarnings,
     netProfit,
@@ -150,6 +181,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
   // RAG retrieves required SFRS disclosures before the AI drafts the notes.
   // This ensures the notes include all mandatory disclosures per Singapore standards.
   const notes = await generateNotes({
+    trace,
     entityContext,
     entity,
     exemptionResult: exemption_result,
@@ -162,6 +194,9 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
   // Maps each line item key to the corresponding ACRA BizFile+ taxonomy code.
   // This is a lookup table — no AI involved, no ambiguity.
   const xbrlTags = generateXbrlTags();
+
+  // ── Langfuse: close parent trace ──────────────────────────────────────────
+  trace.update({ output: { steps_completed: 5, xbrl_tags_count: Object.keys(xbrlTags).length } });
 
   // Parse through FSOutputSchema before returning so that:
   // 1. The notes preprocess coercion runs on the raw AI output (object → array, null → [])
@@ -179,6 +214,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
 // ── Step 1 Helper: Balance Sheet ─────────────────────────────────────────────
 
 async function generateBalanceSheet(params: {
+  trace: LangfuseTraceClient;
   entityContext: string;
   currentAssets: BigNumber;
   nonCurrentAssets: BigNumber;
@@ -191,15 +227,14 @@ async function generateBalanceSheet(params: {
   isBalanced: boolean;
   accounts: import("./schemas").ClassifiedAccount[];
 }): Promise<Record<string, unknown>> {
-  const { object } = await generateObject({
-    model: openai(FS_MODEL),
-    system: `You are a Singapore chartered accountant preparing a Balance Sheet (Statement of Financial Position)
+  const systemPrompt = `You are a Singapore chartered accountant preparing a Balance Sheet (Statement of Financial Position)
 under SFRS for a Singapore private limited company.
 Structure the balance sheet with: current assets, non-current assets, current liabilities,
 non-current liabilities, and equity sections.
 All figures are pre-computed — do not recalculate. Use the exact SGD figures provided.
-Return a structured JSON object representing the balance sheet layout.`,
-    prompt: `${params.entityContext}
+Return a structured JSON object representing the balance sheet layout.`;
+
+  const userPrompt = `${params.entityContext}
 
 PRE-COMPUTED FIGURES (use exactly as provided, do not recalculate):
 Current Assets: SGD ${formatSGD(params.currentAssets)}
@@ -215,7 +250,19 @@ Balance Sheet Balanced: ${params.isBalanced}
 Individual accounts by category:
 ${params.accounts.map((a) => `[${a.sfrs_category}] ${a.account_code} ${a.account_name}: Dr ${a.debit.toFixed(2)} Cr ${a.credit.toFixed(2)}`).join("\n")}
 
-Structure a complete Singapore Balance Sheet in JSON format.`,
+Structure a complete Singapore Balance Sheet in JSON format.`;
+
+  // ── Langfuse: generation for Balance Sheet step ────────────────────────────
+  const generation = params.trace.generation({
+    name: "generate_balance_sheet",
+    model: FS_MODEL,
+    input: { system: systemPrompt, user: userPrompt },
+  });
+
+  const { object, usage } = await generateObject({
+    model: openai(FS_MODEL),
+    system: systemPrompt,
+    prompt: userPrompt,
     schema: z.object({
       title: z.string(),
       as_at_date: z.string(),
@@ -236,12 +283,18 @@ Structure a complete Singapore Balance Sheet in JSON format.`,
     }),
   });
 
+  generation.end({
+    output: object,
+    usage: { input: usage.inputTokens, output: usage.outputTokens, total: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) },
+  });
+
   return object as Record<string, unknown>;
 }
 
 // ── Step 2 Helper: Profit & Loss ─────────────────────────────────────────────
 
 async function generateProfitAndLoss(params: {
+  trace: LangfuseTraceClient;
   entityContext: string;
   revenue: BigNumber;
   expenses: BigNumber;
@@ -249,14 +302,13 @@ async function generateProfitAndLoss(params: {
   accounts: import("./schemas").ClassifiedAccount[];
   fiscalYear: import("./schemas").FiscalYear;
 }): Promise<Record<string, unknown>> {
-  const { object } = await generateObject({
-    model: openai(FS_MODEL),
-    system: `You are a Singapore chartered accountant preparing a Profit & Loss Statement
+  const systemPrompt = `You are a Singapore chartered accountant preparing a Profit & Loss Statement
 (Statement of Comprehensive Income) under SFRS for a Singapore private limited company.
 Structure it with: revenue, cost of goods sold (if applicable), gross profit,
 operating expenses, operating profit, finance costs, profit before tax, income tax, net profit.
-All figures are pre-computed — do not recalculate.`,
-    prompt: `${params.entityContext}
+All figures are pre-computed — do not recalculate.`;
+
+  const userPrompt = `${params.entityContext}
 Period: ${params.fiscalYear.start_date} to ${params.fiscalYear.end_date}
 
 PRE-COMPUTED FIGURES:
@@ -270,7 +322,19 @@ ${params.accounts.filter((a) => a.sfrs_category === "revenue").map((a) => `  ${a
 Expense accounts:
 ${params.accounts.filter((a) => a.sfrs_category === "expense").map((a) => `  ${a.account_code} ${a.account_name}: ${a.debit.toFixed(2)}`).join("\n")}
 
-Structure a complete Singapore P&L in JSON format.`,
+Structure a complete Singapore P&L in JSON format.`;
+
+  // ── Langfuse: generation for P&L step ─────────────────────────────────────
+  const generation = params.trace.generation({
+    name: "generate_profit_and_loss",
+    model: FS_MODEL,
+    input: { system: systemPrompt, user: userPrompt },
+  });
+
+  const { object, usage } = await generateObject({
+    model: openai(FS_MODEL),
+    system: systemPrompt,
+    prompt: userPrompt,
     schema: z.object({
       title: z.string(),
       period_start: z.string(),
@@ -283,26 +347,31 @@ Structure a complete Singapore P&L in JSON format.`,
     }),
   });
 
+  generation.end({
+    output: object,
+    usage: { input: usage.inputTokens, output: usage.outputTokens, total: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) },
+  });
+
   return object as Record<string, unknown>;
 }
 
 // ── Step 3 Helper: Cash Flow Statement ───────────────────────────────────────
 
 async function generateCashFlow(params: {
+  trace: LangfuseTraceClient;
   entityContext: string;
   netProfit: BigNumber;
   accounts: import("./schemas").ClassifiedAccount[];
   fiscalYear: import("./schemas").FiscalYear;
 }): Promise<Record<string, unknown>> {
-  const { object } = await generateObject({
-    model: openai(FS_MODEL),
-    system: `You are a Singapore chartered accountant preparing a Cash Flow Statement
+  const systemPrompt = `You are a Singapore chartered accountant preparing a Cash Flow Statement
 using the INDIRECT METHOD under SFRS for a Singapore private limited company.
 Structure: Operating Activities (start from net profit, add non-cash items,
 adjust working capital), Investing Activities, Financing Activities.
 Derive figures from the trial balance accounts provided. All arithmetic is done by you
-using the account balances — provide reasonable estimates based on account classifications.`,
-    prompt: `${params.entityContext}
+using the account balances — provide reasonable estimates based on account classifications.`;
+
+  const userPrompt = `${params.entityContext}
 Period: ${params.fiscalYear.start_date} to ${params.fiscalYear.end_date}
 
 Net Profit: SGD ${formatSGD(params.netProfit)}
@@ -311,7 +380,19 @@ All classified accounts:
 ${params.accounts.map((a) => `[${a.sfrs_category}] ${a.account_code} ${a.account_name}: Dr ${a.debit.toFixed(2)} Cr ${a.credit.toFixed(2)}`).join("\n")}
 
 Prepare the Cash Flow Statement using the indirect method.
-Identify depreciation, working capital changes, PPE purchases, and financing activities from the account list.`,
+Identify depreciation, working capital changes, PPE purchases, and financing activities from the account list.`;
+
+  // ── Langfuse: generation for Cash Flow step ───────────────────────────────
+  const generation = params.trace.generation({
+    name: "generate_cash_flow",
+    model: FS_MODEL,
+    input: { system: systemPrompt, user: userPrompt },
+  });
+
+  const { object, usage } = await generateObject({
+    model: openai(FS_MODEL),
+    system: systemPrompt,
+    prompt: userPrompt,
     schema: z.object({
       title: z.string(),
       period_start: z.string(),
@@ -336,12 +417,18 @@ Identify depreciation, working capital changes, PPE purchases, and financing act
     }),
   });
 
+  generation.end({
+    output: object,
+    usage: { input: usage.inputTokens, output: usage.outputTokens, total: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) },
+  });
+
   return object as Record<string, unknown>;
 }
 
 // ── Step 4 Helper: Statement of Changes in Equity ───────────────────────────
 
 async function generateEquityStatement(params: {
+  trace: LangfuseTraceClient;
   entityContext: string;
   openingRetainedEarnings: BigNumber;
   netProfit: BigNumber;
@@ -349,13 +436,12 @@ async function generateEquityStatement(params: {
   totalEquity: BigNumber;
   fiscalYear: import("./schemas").FiscalYear;
 }): Promise<Record<string, unknown>> {
-  const { object } = await generateObject({
-    model: openai(FS_MODEL),
-    system: `You are a Singapore chartered accountant preparing a Statement of Changes in Equity
+  const systemPrompt = `You are a Singapore chartered accountant preparing a Statement of Changes in Equity
 under SFRS for a Singapore private limited company.
 Show movements in share capital and retained earnings from opening to closing balance.
-All figures are pre-computed — use exactly as provided.`,
-    prompt: `${params.entityContext}
+All figures are pre-computed — use exactly as provided.`;
+
+  const userPrompt = `${params.entityContext}
 Period: ${params.fiscalYear.start_date} to ${params.fiscalYear.end_date}
 
 PRE-COMPUTED FIGURES:
@@ -364,7 +450,19 @@ Net Profit for Year: SGD ${formatSGD(params.netProfit)}
 Closing Retained Earnings: SGD ${formatSGD(params.closingRetainedEarnings)}
 Total Equity: SGD ${formatSGD(params.totalEquity)}
 
-Structure a complete Statement of Changes in Equity in JSON format.`,
+Structure a complete Statement of Changes in Equity in JSON format.`;
+
+  // ── Langfuse: generation for Equity Statement step ────────────────────────
+  const generation = params.trace.generation({
+    name: "generate_equity_statement",
+    model: FS_MODEL,
+    input: { system: systemPrompt, user: userPrompt },
+  });
+
+  const { object, usage } = await generateObject({
+    model: openai(FS_MODEL),
+    system: systemPrompt,
+    prompt: userPrompt,
     schema: z.object({
       title: z.string(),
       period_start: z.string(),
@@ -385,12 +483,18 @@ Structure a complete Statement of Changes in Equity in JSON format.`,
     }),
   });
 
+  generation.end({
+    output: object,
+    usage: { input: usage.inputTokens, output: usage.outputTokens, total: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) },
+  });
+
   return object as Record<string, unknown>;
 }
 
 // ── Step 5 Helper: Notes to Financial Statements ─────────────────────────────
 
 async function generateNotes(params: {
+  trace: LangfuseTraceClient;
   entityContext: string;
   entity: import("./schemas").Entity;
   exemptionResult: import("./schemas").ExemptionResult;
@@ -401,9 +505,11 @@ async function generateNotes(params: {
   // RAG retrieves required SFRS disclosure requirements from the knowledge base.
   // This ensures the notes include all mandatory items (e.g. accounting policies,
   // related party disclosures, contingent liabilities) required under Singapore SFRS.
+  // Pass the parent trace so the RAG span appears under fs_generation in Langfuse.
   const ragResults = await ragQuery(
     "SFRS notes to financial statements required disclosures Singapore private limited company",
-    8
+    8,
+    params.trace
   );
 
   const ragContext =
@@ -411,16 +517,15 @@ async function generateNotes(params: {
       ? ragResults.map((r) => r.text).join("\n\n---\n\n")
       : "No specific SFRS disclosures found in knowledge base. Use standard Singapore SFRS requirements.";
 
-  const { object } = await generateObject({
-    model: openai(FS_MODEL),
-    system: `You are a Singapore chartered accountant preparing Notes to Financial Statements
+  const systemPrompt = `You are a Singapore chartered accountant preparing Notes to Financial Statements
 under SFRS for a Singapore private limited company.
 Use the retrieved SFRS knowledge base content to ensure all mandatory disclosures are included.
 Each note should have a clear title and detailed content appropriate for a Singapore private limited company.
 
 SFRS Knowledge Base Content:
-${ragContext}`,
-    prompt: `${params.entityContext}
+${ragContext}`;
+
+  const userPrompt = `${params.entityContext}
 Audit Exempt: ${params.exemptionResult.is_audit_exempt}
 EPC Status: ${params.exemptionResult.is_epc}
 
@@ -438,7 +543,19 @@ Prepare comprehensive Notes to Financial Statements including:
 IMPORTANT: The "notes" field in your response MUST be a JSON array [].
 Never return notes as an object with numeric keys.
 Never return null or omit the field.
-Each element must have exactly two string fields: "title" and "content".`,
+Each element must have exactly two string fields: "title" and "content".`;
+
+  // ── Langfuse: generation for Notes step ───────────────────────────────────
+  const generation = params.trace.generation({
+    name: "generate_notes",
+    model: FS_MODEL,
+    input: { system: systemPrompt, user: userPrompt },
+  });
+
+  const { object, usage } = await generateObject({
+    model: openai(FS_MODEL),
+    system: systemPrompt,
+    prompt: userPrompt,
     schema: z.object({
       notes: z.array(
         z.object({
@@ -447,6 +564,11 @@ Each element must have exactly two string fields: "title" and "content".`,
         })
       ),
     }),
+  });
+
+  generation.end({
+    output: { note_count: object.notes.length },
+    usage: { input: usage.inputTokens, output: usage.outputTokens, total: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0) },
   });
 
   return object.notes;

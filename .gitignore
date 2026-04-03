@@ -32,10 +32,18 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!docker-compose.env.example
 
 # Claude Code project files (auto-installed skills, local config)
 .claude/
 .agents/
+
+# Docker Compose secrets (copy from docker-compose.env.example)
+docker-compose.env
+
+# Fine-tuning training data — may contain client-sensitive content
+docs/training/training_data.jsonl
 
 # vercel
 .vercel

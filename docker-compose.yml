@@ -1,0 +1,116 @@
+# FinAgent-SG — Docker Compose
+#
+# Starts all local infrastructure needed for development:
+#   - langfuse-db     PostgreSQL (port 5433 on host) — Langfuse's own database
+#   - langfuse-server Langfuse web UI + API (port 3001 on host)
+#   - langfuse-worker Langfuse async background worker (no exposed port)
+#   - chromadb        ChromaDB vector store (port 8000 on host) — RAG knowledge base
+#
+# All secrets are read from docker-compose.env (never hardcoded here).
+# Copy docker-compose.env.example → docker-compose.env and fill in your values.
+#
+# Usage:
+#   cp docker-compose.env.example docker-compose.env   # first time only
+#   docker compose --env-file docker-compose.env up -d
+#   docker compose --env-file docker-compose.env down
+#
+# Langfuse dashboard: http://localhost:3001
+# ChromaDB:          http://localhost:8000
+
+version: "3.9"
+
+networks:
+  finagent-net:
+    driver: bridge
+
+volumes:
+  langfuse_pg_data:
+  chromadb_data:
+
+services:
+
+  # ── PostgreSQL — Langfuse's own database ──────────────────────────────────
+  # Runs on port 5433 on the host to avoid conflicts with any local Postgres.
+  # Langfuse containers connect to this via the internal network (port 5432).
+  langfuse-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - finagent-net
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${LANGFUSE_DB_USER}
+      POSTGRES_PASSWORD: ${LANGFUSE_DB_PASSWORD}
+      POSTGRES_DB: ${LANGFUSE_DB_NAME}
+    volumes:
+      - langfuse_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LANGFUSE_DB_USER} -d ${LANGFUSE_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Langfuse Web Server ───────────────────────────────────────────────────
+  # The main Langfuse dashboard + API, accessible at http://localhost:3001.
+  # NEXTAUTH_URL must match the URL you access in the browser.
+  # INIT variables auto-create the default user and project on first run.
+  langfuse-server:
+    image: langfuse/langfuse:3
+    restart: unless-stopped
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    networks:
+      - finagent-net
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://${LANGFUSE_DB_USER}:${LANGFUSE_DB_PASSWORD}@langfuse-db:5432/${LANGFUSE_DB_NAME}
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      # Auto-create default org, project, and user on first run
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME}
+
+  # ── Langfuse Worker ───────────────────────────────────────────────────────
+  # Async background processor for Langfuse events (batching, scoring, etc.).
+  # Does not expose a port — communicates with langfuse-server via shared DB.
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    restart: unless-stopped
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    networks:
+      - finagent-net
+    environment:
+      DATABASE_URL: postgresql://${LANGFUSE_DB_USER}:${LANGFUSE_DB_PASSWORD}@langfuse-db:5432/${LANGFUSE_DB_NAME}
+      SALT: ${LANGFUSE_SALT}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      TELEMETRY_ENABLED: "false"
+
+  # ── ChromaDB — Vector Store ───────────────────────────────────────────────
+  # Local vector database for RAG knowledge base.
+  # Previously run via: docker run -p 8000:8000 chromadb/chroma
+  # Now managed here so all services start and stop together.
+  # Data is persisted in the chromadb_data volume.
+  chromadb:
+    image: chromadb/chroma:latest
+    restart: unless-stopped
+    networks:
+      - finagent-net
+    ports:
+      - "8000:8000"
+    environment:
+      ALLOW_RESET: "true"
+    volumes:
+      - chromadb_data:/chroma/chroma
