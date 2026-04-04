@@ -55,7 +55,11 @@ const INITIAL_STEPS: ProgressStep[] = [
   { key: "complete", label: "Ready for download", status: "pending", message: "" },
 ];
 
-export function WorkflowPanel() {
+interface WorkflowPanelProps {
+  onSchemaNameChange?: (schemaName: string) => void;
+}
+
+export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
   const [selectedTask, setSelectedTask] = useState<Task>("financial_statements");
 
   // ── File upload state ──────────────────────────────────────────────────────
@@ -355,7 +359,7 @@ export function WorkflowPanel() {
             <Label className="text-xs text-muted-foreground">Company Name</Label>
             <Input
               value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
+              onChange={(e) => { setCompanyName(e.target.value); onSchemaNameChange?.(generateSchemaName(e.target.value.trim() || "company")); }}
               placeholder="ABC Pte Ltd"
               className="text-sm"
             />

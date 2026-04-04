@@ -8,15 +8,22 @@
  * - Right panel: Training & Feedback Chatbot
  * - Bottom: Navigation bar
  *
- * Phase 0: Static UI shell only. No backend logic, no AI calls, no data fetching.
- * All panels show placeholder content. Interactions will be wired in Phase 1+.
+ * Phase 5: schemaName is lifted here so ChatbotPanel writes corrections to the
+ * same client schema that WorkflowPanel is working on.
  */
 
+"use client";
+
+import { useState } from "react";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { ChatbotPanel } from "@/components/ChatbotPanel";
 import { BottomNav } from "@/components/BottomNav";
 
 export default function HomePage() {
+  // Defaults to techsoft_pte_ltd so corrections work before a company name is typed.
+  // Updates in real time as the user types in the Company Name field.
+  const [schemaName, setSchemaName] = useState("techsoft_pte_ltd");
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Top header bar */}
@@ -29,12 +36,12 @@ export default function HomePage() {
       <main className="flex flex-1 overflow-hidden">
         {/* Left: Workflow panel */}
         <div className="w-1/2 border-r overflow-y-auto">
-          <WorkflowPanel />
+          <WorkflowPanel onSchemaNameChange={setSchemaName} />
         </div>
 
         {/* Right: Chatbot panel */}
         <div className="w-1/2 overflow-y-auto">
-          <ChatbotPanel />
+          <ChatbotPanel schemaName={schemaName} />
         </div>
       </main>
 
