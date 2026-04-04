@@ -103,7 +103,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // The corrections table in each client schema stores all user feedback
     // for review and eventual fine-tuning (Phase 5, Task 6).
     try {
-      await supabase.from(`${schemaName}.corrections` as any).insert({
+      await supabase.schema(schemaName).from("corrections").insert({
         output_id: output_id ?? null,
         message,
         status: "pending",

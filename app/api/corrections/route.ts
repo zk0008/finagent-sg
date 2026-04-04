@@ -47,7 +47,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Build the Supabase query against the client schema's corrections table.
   // The table is addressed as "<schemaName>.corrections" via the service role client.
   let query = supabase
-    .from(`${schemaName}.corrections` as any)
+    .schema(schemaName)
+    .from("corrections")
     .select("id, output_id, message, status, created_at")
     .order("created_at", { ascending: false });
 
@@ -91,7 +92,8 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const { id, schemaName, status } = body;
 
   const { data, error } = await supabase
-    .from(`${schemaName}.corrections` as any)
+    .schema(schemaName)
+    .from("corrections")
     .update({ status })
     .eq("id", id)
     .select("id, output_id, message, status, created_at")
