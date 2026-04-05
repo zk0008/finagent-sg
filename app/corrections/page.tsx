@@ -32,22 +32,42 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BottomNav } from "@/components/BottomNav";
 import type { Correction } from "@/app/api/corrections/route";
+import type { ClientSummary } from "@/app/api/clients/route";
 
 type StatusFilter = "all" | "pending" | "reviewed";
 
 export default function CorrectionsPage() {
   const searchParams = useSearchParams();
-  const schemaName = searchParams.get("schema") ?? "techsoft_pte_ltd";
+  const initialSchema = searchParams.get("schema") ?? "";
 
+  const [clients, setClients] = useState<ClientSummary[]>([]);
+  const [schemaName, setSchemaName] = useState(initialSchema);
   const [corrections, setCorrections] = useState<Correction[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
 
+  // Load client list on mount
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((r) => r.json())
+      .then((d) => {
+        const list: ClientSummary[] = d.clients ?? [];
+        setClients(list);
+        // If no schema from URL, default to first client
+        if (!initialSchema && list.length > 0) {
+          setSchemaName(list[0].schema_name);
+        }
+      })
+      .catch(() => {});
+  }, [initialSchema]);
+
   // Load corrections whenever the schema or filter changes
   useEffect(() => {
+    if (!schemaName) return;
     loadCorrections();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schemaName, statusFilter]);
@@ -101,15 +121,35 @@ export default function CorrectionsPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="flex flex-col min-h-screen bg-background">
+      <header className="flex items-center justify-between px-6 py-3 border-b bg-white">
+        <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
+      </header>
+
+      <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
       <div className="mb-6">
         <h1 className="text-xl font-semibold">Corrections</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Schema: <span className="font-mono">{schemaName}</span>
-          {" · "}
           Review chatbot corrections before fine-tuning
         </p>
       </div>
+
+      {/* Client selector */}
+      {clients.length > 0 && (
+        <div className="mb-6">
+          <select
+            value={schemaName}
+            onChange={(e) => setSchemaName(e.target.value)}
+            className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm w-72"
+          >
+            {clients.map((c) => (
+              <option key={c.id} value={c.schema_name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Status filter */}
       <Tabs
@@ -183,6 +223,9 @@ export default function CorrectionsPage() {
           </TableBody>
         </Table>
       )}
+      </main>
+
+      <BottomNav />
     </div>
   );
 }

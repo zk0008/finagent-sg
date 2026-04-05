@@ -4,21 +4,21 @@
  * NextAuth.js v5 (beta) configuration for FinAgent-SG.
  * Authentication method: email/password only (Credentials provider).
  *
- * No OAuth, no magic links, no social login — not in scope for Phase 0.
- *
- * In Phase 0, user lookup is a stub (no database yet).
- * In production, replace the authorize function body with a real
- * Supabase query against the public.users table.
+ * Phase 6: authorize() now queries public.users in Supabase and verifies
+ * the password hash with bcryptjs. User id, email, name, and role are
+ * stored in the JWT session token.
  */
 
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
+import { supabase } from "@/lib/supabaseClient";
 
 // Zod schema for validating credentials at the NextAuth boundary
 const CredentialsSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(1),
 });
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -30,27 +30,54 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // Validate input shape
         const parsed = CredentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        // TODO (Phase 1+): Replace this stub with a real Supabase query.
-        // Example:
-        //   const user = await supabase
-        //     .from('users')
-        //     .select('*')
-        //     .eq('email', parsed.data.email)
-        //     .single();
-        //   if (!user || !verifyPassword(parsed.data.password, user.password_hash)) return null;
-        //   return { id: user.id, email: user.email, name: user.name };
+        const { email, password } = parsed.data;
 
-        // Phase 0 stub: always reject (no users in DB yet)
-        return null;
+        // Look up the user in public.users
+        const { data: user } = await supabase
+          .from("users")
+          .select("id, email, name, role, password_hash")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (!user) return null;
+
+        // Verify the password against the stored bcrypt hash
+        const valid = await bcrypt.compare(password, user.password_hash);
+        if (!valid) return null;
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        };
       },
     }),
   ],
   session: { strategy: "jwt" },
+  callbacks: {
+    // Persist id and role into the JWT token
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = (user as { role?: string }).role ?? "accountant";
+      }
+      return token;
+    },
+    // Expose id and role on the session object
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        (session.user as { role?: string }).role = token.role as string;
+      }
+      return session;
+    },
+  },
   pages: {
-    signIn: "/login",  // Custom login page — to be built in Phase 1
+    signIn: "/auth/login",
+    error: "/auth/error",
   },
 });

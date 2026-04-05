@@ -1,36 +1,104 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FinAgent-SG
+
+FinAgent-SG is an AI-powered accounting assistant for Singapore private limited companies. It automates the preparation of SFRS-compliant financial statements, financial projections, and payroll processing — reducing manual effort and the risk of errors. Built for accountants and finance professionals who manage Singapore-incorporated entities.
+
+---
+
+## Use Cases
+
+- **Financial Statement Preparation** — Upload a trial balance and receive a complete set of SFRS-compliant financial statements as a downloadable PDF.
+- **Financial Model Builder** — Generate multi-year financial projections with base, best-case, and worst-case scenarios, and compare them against actual results.
+- **Payroll & CPF Processing** — Run monthly payroll, compute CPF contributions, generate MOM-compliant payslips, and export the CPF e-Submit file.
+
+---
+
+## How It Works
+
+1. Register an account and add your client company to the system.
+2. Upload the client's trial balance as an Excel file.
+3. The AI reviews the accounts, applies Singapore Financial Reporting Standards, and generates a full set of financial statements.
+4. Review the output in the browser and download the PDF.
+5. If anything looks incorrect, submit a correction through the integrated chatbot.
+6. Corrections are reviewed and used to improve future generations for that client.
+
+---
+
+## Tech Stack
+
+| Tool | Purpose |
+|------|---------|
+| Next.js 15 | Full-stack web framework (App Router) |
+| Vercel AI SDK 6 | Streaming AI responses and tool integration |
+| OpenAI | Language model for financial statement generation and analysis |
+| Supabase | Multi-tenant PostgreSQL database and authentication backend |
+| ChromaDB | Local vector store for RAG during development |
+| pgvector | Production vector store hosted within Supabase |
+| Langfuse | LLM observability, tracing, and cost tracking |
+| Trigger.dev | Background job processing for long-running tasks |
+| NextAuth.js | Email and password authentication |
+| Zod | Runtime data validation across all API boundaries |
+| bignumber.js | Precise financial arithmetic without floating-point errors |
+| exceljs | Excel file parsing and workbook export |
+| pdfkit | PDF generation for financial statements and payslips |
+| Docker | Local infrastructure for ChromaDB and Langfuse |
+
+---
+
+## Prerequisites
+
+- Node.js 18+
+- Docker Desktop
+- A Supabase account
+- An OpenAI account with API key
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in the values:
+
+```
+OPENAI_API_KEY
+NEXTAUTH_SECRET
+NEXTAUTH_URL
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+CHROMA_URL
+LANGFUSE_PUBLIC_KEY
+LANGFUSE_SECRET_KEY
+LANGFUSE_HOST
+```
+
+---
 
 ## Getting Started
 
-First, run the development server:
+1. Clone the repository and run `npm install` to install dependencies.
+2. Copy `.env.example` to `.env.local` and fill in all required values.
+3. Open the Supabase SQL editor and run `supabase/schema.sql` to create all tables.
+4. Start Docker services with `docker compose --env-file docker-compose.env up -d`.
+5. Start the development server with `npm run dev`.
+6. Register an account at [http://localhost:3000](http://localhost:3000).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Project Structure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Folder | Description |
+|--------|-------------|
+| `app/` | Next.js pages and API routes |
+| `components/` | Reusable UI components |
+| `lib/` | Core business logic and utility modules |
+| `scripts/` | CLI scripts for data ingestion and maintenance |
+| `supabase/` | Database schema SQL |
+| `trigger/` | Background job definitions |
+| `skills/` | Domain knowledge files for Singapore accounting and payroll rules |
+| `docs/` | Reference documents, sample files, and training data |
+| `public/` | Static assets |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is proprietary. All rights reserved.

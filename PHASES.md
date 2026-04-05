@@ -490,3 +490,78 @@ Note: The exact skill names in the blueprint (`frontend-design`, `nextjs-perform
 - Charts/graphs in model dashboard (explicitly deferred — tables only)
 - FWL, YTD OW, payslip zip, CPF CSV stripping — carried from Phase 4
 
+
+---
+
+## Phase 6 — Polish & Deploy
+**Status:** Complete
+**Date completed:** 2026-04-04
+
+### Files Built
+| File | Purpose |
+|------|---------|
+| `app/auth/register/page.tsx` | User registration form |
+| `app/auth/login/page.tsx` | Login form — NextAuth signIn() |
+| `app/auth/error/page.tsx` | NextAuth error page |
+| `app/api/auth/register/route.ts` | POST registration — bcrypt hash + Supabase insert |
+| `app/clients/page.tsx` | Client management table + Add New Client form |
+| `components/AddClientForm.tsx` | New client form component |
+| `app/api/clients/route.ts` | GET list + POST create (schema creation via SQL) |
+| `app/api/clients/[id]/route.ts` | GET detail (incl. entity_id + fiscal_year_id) + PUT update |
+| `app/history/page.tsx` | History tabs: FS | Models | Payroll — read-only |
+| `app/api/history/route.ts` | GET history items by type |
+| `app/api/history/pdf/route.ts` | GET stored PDF by output ID |
+| `app/help/page.tsx` | Static help/documentation page |
+| `app/api/admin/costs/route.ts` | GET 30-day token usage + estimated cost (admin only) |
+| `lib/validateEnv.ts` | Startup env var validation — throws clearly if missing |
+| `lib/schemaAccess.ts` | verifySchemaAccess() — schema isolation guard |
+| `lib/pgvectorClient.ts` | pgvector upsertEmbedding() + queryEmbeddings() |
+| `lib/vectorStore.ts` | Environment-aware router: dev=ChromaDB, prod=pgvector |
+| `scripts/migrateChromaToPgvector.ts` | One-time ChromaDB → pgvector migration |
+| `vercel.json` | Vercel function maxDuration config |
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `auth.ts` | Wired credentials provider to Supabase users table + bcrypt verify; JWT callbacks store id + role |
+| `proxy.ts` | Auth enforcement: redirects unauthenticated users to /auth/login; public: /auth/*, /api/auth/* |
+| `app/layout.tsx` | Added SessionProvider; calls validateEnv() on startup |
+| `app/page.tsx` | Header shows session user name + Sign Out button |
+| `components/BottomNav.tsx` | Added Help link |
+| `components/WorkflowPanel.tsx` | Client selector dropdown; removed hardcoded entity_id/fiscal_year_id |
+| `app/api/corrections/route.ts` | verifySchemaAccess() added to GET and PATCH |
+| `app/api/chat/route.ts` | verifySchemaAccess(); switched to vectorStore.ts; Langfuse error logging |
+| `app/api/generate-fs/route.ts` | Langfuse ERROR trace in catch block |
+| `supabase/schema.sql` | Added password_hash to users; added client_schemas table; added pgvector tables |
+
+### Packages Installed
+| Package | Purpose |
+|---------|---------|
+| `bcryptjs` | Password hashing for registration + login |
+| `@types/bcryptjs` | TypeScript types |
+
+### Decisions
+| Decision | Reason |
+|----------|--------|
+| client_schemas registry table in public schema | Needed by WorkflowPanel to look up entity_id/fiscal_year_id without hardcoding; also serves as the schema access allowlist |
+| verifySchemaAccess() caches verified schemas in memory | One DB round-trip per schema per server process; safe because schemas are registered once and never deleted |
+| vectorStore.ts uses dynamic imports | Avoids bundling chromadb in production build where it's not used |
+| proxy.ts uses manual session check (not exported auth) | Required to call async auth() and redirect — the simple `export { auth as proxy }` pattern used in Phase 0 cannot conditionally redirect |
+| Admin role check in /api/admin/costs | Cost data is sensitive; requires role="admin" in session |
+| Langfuse error logging uses trace.update (not level) | trace.update() does not accept level field — error context stored in output object instead |
+| pgvector upsert conflict key: (source_file, chunk_index) | Natural dedup key — re-ingesting a file replaces existing chunks without creating duplicates |
+
+### Deviations from Blueprint
+| Deviation | Reason |
+|-----------|--------|
+| exec_sql RPC not used for schema creation | Supabase does not expose a generic exec_sql RPC by default; the buildSchemaSQL function is prepared but requires a custom RPC to be created in Supabase. Documented in the clients API comment. |
+| middleware.ts still present (unused) | proxy.ts is the active file per Next.js 16.2 convention; middleware.ts is a remnant from Phase 0 and can be deleted after confirming proxy.ts works |
+
+### Open Items
+- Run `ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';` in Supabase SQL editor for existing deployments
+- Create `public.client_schemas` table in Supabase (SQL in schema.sql)
+- Create the `match_knowledge_embeddings` RPC in Supabase before going live (SQL in lib/pgvectorClient.ts comments)
+- Create custom `exec_sql` RPC in Supabase for the clients POST route schema creation to work
+- Run `scripts/migrateChromaToPgvector.ts` before deploying to production
+- Sign up at cloud.langfuse.com and add LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST=https://cloud.langfuse.com to Vercel env vars
+- Add all required env vars to Vercel dashboard before running `vercel --prod`

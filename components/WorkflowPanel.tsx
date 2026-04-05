@@ -19,7 +19,9 @@
 
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import type { ClientSummary } from "@/app/api/clients/route";
+import type { ClientDetail } from "@/app/api/clients/[id]/route";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -61,6 +63,43 @@ interface WorkflowPanelProps {
 
 export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
   const [selectedTask, setSelectedTask] = useState<Task>("financial_statements");
+
+  // ── Client selector state (Phase 6) ───────────────────────────────────────
+  const [clients, setClients] = useState<ClientSummary[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  // entityId and fiscalYearId are loaded from the selected client; no longer hardcoded
+  const [entityId, setEntityId] = useState<string>("");
+  const [fiscalYearId, setFiscalYearId] = useState<string>("");
+
+  // Load clients list on mount
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((r) => r.json())
+      .then((d) => { if (d.clients) setClients(d.clients); })
+      .catch(() => {/* non-fatal — user can still type manually */});
+  }, []);
+
+  // When a client is selected from the dropdown, pre-populate fields and load IDs
+  async function handleClientSelect(clientId: string) {
+    setSelectedClientId(clientId);
+    if (!clientId) {
+      setEntityId("");
+      setFiscalYearId("");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/clients/${clientId}`);
+      const data: { client: ClientDetail } = await res.json();
+      if (!res.ok || !data.client) return;
+      const c = data.client;
+      setCompanyName(c.name);
+      setUen(c.uen);
+      setFyeDate(c.fye_date);
+      setEntityId(c.entity_id ?? "");
+      setFiscalYearId(c.latest_fiscal_year_id ?? "");
+      onSchemaNameChange?.(c.schema_name);
+    } catch {/* non-fatal */}
+  }
 
   // ── File upload state ──────────────────────────────────────────────────────
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -149,20 +188,19 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
     // Build the request body — entity, fiscal_year, exemption_input, and the file
     const startDate = `${fyeDate.slice(0, 4)}-01-01`; // approximate start as Jan 1 of same year
     const requestBody = {
-      // TODO: remove hardcoded test IDs before production — Phase 6
-      entity_id: "581018b8-7c84-41bf-8c56-00cfc5ef6079", // hardcoded for Phase 2 smoke testing
-      fiscal_year_id: "db678b0d-468f-4c84-a376-c629d5793730", // hardcoded for Phase 2 smoke testing
+      entity_id: entityId || undefined,
+      fiscal_year_id: fiscalYearId || undefined,
       file_data: base64,
       file_name: uploadedFile.name,
       entity: {
         name: companyName.trim(),
-        uen: uen.trim() || "202500001A", // placeholder if not entered
+        uen: uen.trim() || "202500001A",
         company_type: "private_ltd",
         fye_date: fyeDate,
         audit_exempt: false, // will be determined by exemption check
       },
       fiscal_year: {
-        entity_id: "581018b8-7c84-41bf-8c56-00cfc5ef6079",
+        entity_id: entityId || undefined,
         start_date: startDate,
         end_date: fyeDate,
         status: "in_progress",
@@ -260,7 +298,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
         audit_exempt: false,
       },
       fiscal_year: {
-        entity_id: "581018b8-7c84-41bf-8c56-00cfc5ef6079",
+        entity_id: entityId || undefined,
         start_date: `${fyeDate.slice(0, 4)}-01-01`,
         end_date: fyeDate,
         status: "in_progress",
@@ -349,12 +387,30 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
         </CardContent>
       </Card>
 
-      {/* ── 1b. Company Name (always visible — shared by both tasks) ── */}
+      {/* ── 1b. Company (always visible — shared by all tasks) ── */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Company</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {/* Client selector dropdown — populated from /api/clients */}
+          {clients.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Select Client</Label>
+              <select
+                value={selectedClientId}
+                onChange={(e) => handleClientSelect(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              >
+                <option value="">— type manually or select a client —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.uen})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Company Name</Label>
             <Input
@@ -372,8 +428,8 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
         <ModelWorkflow
           schemaName={generateSchemaName(companyName.trim() || "company")}
           companyName={companyName.trim()}
-          entityId="581018b8-7c84-41bf-8c56-00cfc5ef6079"
-          fiscalYearId="db678b0d-468f-4c84-a376-c629d5793730"
+          entityId={entityId}
+          fiscalYearId={fiscalYearId}
           isAuditExempt={false}
         />
       )}
@@ -383,7 +439,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
         <PayrollWorkflow
           schemaName={generateSchemaName(companyName.trim() || "company")}
           companyName={companyName.trim()}
-          entityId="581018b8-7c84-41bf-8c56-00cfc5ef6079"
+          entityId={entityId}
           uen={uen.trim() || "202500001A"}
         />
       )}

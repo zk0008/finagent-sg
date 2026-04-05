@@ -44,10 +44,10 @@ import { z } from "zod";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { supabase } from "@/lib/supabaseClient";
-import { ragQuery } from "@/lib/ragQuery";
-import { ingestText } from "@/lib/ingest";
+import { queryVectorStore, ingestToVectorStore } from "@/lib/vectorStore";
 import { getLangfuse, flushLangfuse } from "@/lib/langfuse";
 import { MODEL_ROUTES } from "@/lib/modelRouter";
+import { verifySchemaAccess } from "@/lib/schemaAccess";
 
 // Validate the request body
 const RequestSchema = z.object({
@@ -87,6 +87,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { message, schemaName, output_id } = body;
 
+  if (!await verifySchemaAccess(schemaName)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // ── Langfuse: open parent trace for this chat message ─────────────────────
   // Tracks both correction and question paths so you can see what users are
   // asking and whether corrections are being captured correctly.
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // alongside other SFRS knowledge in the RAG pipeline.
     const correctionId = `correction::${schemaName}::${Date.now()}`;
     try {
-      await ingestText(message, correctionId, "correction");
+      await ingestToVectorStore(message, correctionId, "correction");
     } catch (err) {
       console.error("[chat] Failed to ingest correction into ChromaDB:", err);
     }
@@ -141,7 +145,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Step 1: RAG — retrieve relevant SFRS context for this question.
   // Pass the parent trace so the RAG span appears under chat_response in Langfuse.
-  const ragResults = await ragQuery(message, 4, trace);
+  const ragResults = await queryVectorStore(message, 4, trace);
   const ragContext =
     ragResults.length > 0
       ? ragResults.map((r) => r.text).join("\n\n---\n\n")
@@ -187,6 +191,7 @@ Keep answers concise — 2–4 sentences unless more detail is clearly needed.`;
     });
   } catch (err) {
     generation.end({ output: { error: String(err) } });
+    trace.update({ output: { route: "/api/chat", error: String(err), stack: (err as Error).stack ?? null } });
     await flushLangfuse();
     return NextResponse.json(
       { error: "Failed to generate answer" },

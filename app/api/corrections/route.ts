@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabaseClient";
+import { verifySchemaAccess } from "@/lib/schemaAccess";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (!schemaName) {
     return NextResponse.json({ error: "schemaName query param is required" }, { status: 400 });
+  }
+
+  if (!await verifySchemaAccess(schemaName)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Build the Supabase query against the client schema's corrections table.
@@ -90,6 +95,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   const { id, schemaName, status } = body;
+
+  if (!await verifySchemaAccess(schemaName)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { data, error } = await supabase
     .schema(schemaName)

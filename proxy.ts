@@ -2,19 +2,40 @@
  * proxy.ts
  *
  * Next.js proxy (formerly middleware) for FinAgent-SG.
- * Runs NextAuth session checks on all routes except public ones.
+ * Enforces authentication on all app routes (Phase 6).
  *
- * Renamed from middleware.ts to proxy.ts per Next.js 16.2 convention.
- * Export renamed from `middleware` to `proxy` accordingly.
+ * Public routes (no auth required):
+ *   /auth/login     — login page
+ *   /auth/register  — registration page
+ *   /auth/error     — NextAuth error page
+ *   /api/auth/*     — NextAuth internals (signIn, signOut, session)
  *
- * In Phase 0, authentication is not enforced (login page not built yet).
- * This file is here to make the auth wiring visible — enforcement
- * will be added in Phase 1 when the login page is built.
+ * All other routes redirect unauthenticated users to /auth/login.
  */
 
-export { auth as proxy } from "@/auth";
+import { auth } from "@/auth";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Public paths — always accessible without auth
+  const isPublic =
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/api/auth/");
+
+  if (isPublic) return NextResponse.next();
+
+  const session = await auth();
+  if (!session) {
+    const loginUrl = new URL("/auth/login", req.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
-  // Protect all routes except static files, images, and the login page
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|login).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

@@ -13,13 +13,51 @@
 
 -- users: All platform users — accountants who log in to FinAgent-SG.
 -- One row per registered user. Role determines access level.
+-- password_hash: bcrypt hash (12 rounds) — added Phase 6.
 CREATE TABLE IF NOT EXISTS public.users (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email       TEXT NOT NULL UNIQUE,
-  name        TEXT NOT NULL,
-  role        TEXT NOT NULL DEFAULT 'accountant', -- 'admin' | 'accountant'
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email          TEXT NOT NULL UNIQUE,
+  name           TEXT NOT NULL,
+  role           TEXT NOT NULL DEFAULT 'accountant', -- 'admin' | 'accountant'
+  password_hash  TEXT NOT NULL DEFAULT '',           -- bcryptjs hash, set on registration
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Phase 6 migration: add password_hash to existing users table if it doesn't exist.
+-- Run this in Supabase SQL editor if upgrading from a pre-Phase-6 schema:
+--   ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
+
+-- client_schemas: Registry of all client companies onboarded to FinAgent-SG.
+-- One row per client. Tracks which PostgreSQL schema was created for each client,
+-- and stores a reference to the primary entity_id for fast lookup.
+-- Added Phase 6 — replaces the need to hardcode entity/fiscal-year UUIDs.
+CREATE TABLE IF NOT EXISTS public.client_schemas (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         TEXT NOT NULL,                     -- Company full legal name
+  uen          TEXT NOT NULL UNIQUE,              -- ACRA UEN
+  company_type TEXT NOT NULL DEFAULT 'private_ltd',
+  fye_date     DATE NOT NULL,
+  audit_exempt BOOLEAN NOT NULL DEFAULT FALSE,
+  schema_name  TEXT NOT NULL UNIQUE,              -- PostgreSQL schema name (e.g. "techsoft_pte_ltd")
+  entity_id    UUID,                              -- References entities.id in the client schema
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Seed: register the existing techsoft_pte_ltd test client.
+-- Run this once in Supabase SQL editor after running the schema:
+--
+-- INSERT INTO public.client_schemas (name, uen, company_type, fye_date, audit_exempt, schema_name, entity_id)
+-- VALUES (
+--   'TechSoft Pte Ltd',
+--   '202500001A',
+--   'private_ltd',
+--   '2025-12-31',
+--   true,
+--   'techsoft_pte_ltd',
+--   '581018b8-7c84-41bf-8c56-00cfc5ef6079'  -- replace with actual entity_id from techsoft_pte_ltd.entities
+-- )
+-- ON CONFLICT (uen) DO NOTHING;
+
 
 -- ============================================================
 -- PER-CLIENT SCHEMA TEMPLATE
@@ -208,3 +246,33 @@ CREATE TABLE IF NOT EXISTS client_schema.payslips (
   net_pay          NUMERIC(12, 2) NOT NULL,            -- Gross pay + allowances − employee_cpf − other deductions
   created_at       TIMESTAMPTZ DEFAULT now()
 );
+
+-- ============================================================
+-- PGVECTOR — RAG Knowledge Base (Phase 6, Task 5)
+-- ============================================================
+-- Replaces ChromaDB in production (Vercel deployment).
+-- In development, ChromaDB continues to be used.
+-- Run this SQL in Supabase SQL editor before deploying to production.
+-- ============================================================
+
+-- Enable the pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- knowledge_embeddings: Stores text chunks and their vector embeddings.
+-- Mirrors the ChromaDB sfrs_knowledge collection schema.
+CREATE TABLE IF NOT EXISTS knowledge_embeddings (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content     TEXT NOT NULL,
+  embedding   vector(1536),        -- text-embedding-3-small dimension
+  source_file TEXT,
+  chunk_index INTEGER,
+  topic       TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- IVFFlat index for fast approximate cosine similarity search.
+-- lists=100 is appropriate for up to ~1M rows.
+CREATE INDEX IF NOT EXISTS knowledge_embeddings_embedding_idx
+  ON knowledge_embeddings
+  USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);

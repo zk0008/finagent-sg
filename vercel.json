@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/generate-fs/route.ts": { "maxDuration": 60 },
+    "app/api/model/run/route.ts": { "maxDuration": 60 },
+    "app/api/**": { "maxDuration": 30 }
+  }
+}

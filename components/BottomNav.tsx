@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { label: "Clients", href: "/clients" },
   { label: "History", href: "/history" },
   { label: "Corrections", href: "/corrections" },
+  { label: "Help", href: "/help" },
   { label: "Settings", href: "/settings" },
 ];
 

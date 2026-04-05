@@ -22,9 +22,9 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 | Phase 3 | Financial Model Agent — projections, scenarios | **Complete** |
 | Phase 4 | Payroll & CPF Agent | **Complete** |
 | Phase 5 | Continuous Improvement — fine-tuning, Langfuse | **Complete** |
-| Phase 6 | Polish & Deploy | **Next** |
+| Phase 6 | Polish & Deploy | **Complete** |
 
-**Do not build ahead of the current phase without explicit instruction.**
+**All phases complete. Project is production-ready. GitHub push deferred — user to push after testing.**
 
 ---
 
@@ -67,7 +67,7 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 
 ---
 
-## Project Structure (Phase 5 complete)
+## Project Structure (Phase 6 complete)
 
 ```
 finagent-sg/
@@ -134,7 +134,8 @@ finagent-sg/
 │   ├── testRag.ts                  # Phase 1: RAG test script
 │   ├── createSampleTrialBalance.ts # Phase 2: creates docs/samples/sample_trial_balance.xlsx
 │   ├── exportTrainingData.ts       # Phase 5: export reviewed corrections as JSONL
-│   └── runFineTuning.ts            # Phase 5: upload JSONL + create fine-tuning job
+│   ├── runFineTuning.ts            # Phase 5: upload JSONL + create fine-tuning job
+│   └── migrateChromaToPgvector.ts  # Phase 6: one-time ChromaDB → pgvector migration
 ├── skills/
 │   ├── sg-accounting-standards/SKILL.md  # Phase 2: SG accounting rules
 │   └── sg-payroll-cpf/SKILL.md           # Phase 4: CPF rates + payroll rules (1 Jan 2026)
@@ -151,6 +152,7 @@ finagent-sg/
 ├── proxy.ts
 ├── docker-compose.yml              # Phase 5: Langfuse + ChromaDB infrastructure
 ├── docker-compose.env.example      # Phase 5: Docker secrets template
+├── vercel.json                     # Phase 6: Vercel function timeout config
 └── .env.local
 ```
 

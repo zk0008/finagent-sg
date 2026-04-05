@@ -38,7 +38,7 @@ import { checkExemption } from "@/lib/exemptionChecker";
 import { generateFinancialStatements } from "@/lib/fsGenerator";
 import { saveGeneratedFS } from "@/lib/outputStorage";
 import { generateSchemaName } from "@/lib/schemaUtils";
-import { flushLangfuse } from "@/lib/langfuse";
+import { flushLangfuse, getLangfuse } from "@/lib/langfuse";
 import {
   EntitySchema,
   FiscalYearSchema,
@@ -261,6 +261,13 @@ export async function POST(req: NextRequest): Promise<Response> {
         } as ProgressEvent & { fs_output: unknown; exemption_result: unknown });
 
       } catch (err) {
+        // Log the error to Langfuse before closing the stream
+        getLangfuse().trace({
+          name: "pipeline_error",
+          input: { route: "/api/generate-fs", error: String(err) },
+          output: { stack: (err as Error).stack ?? null },
+        });
+
         // On any error: emit an error event with the step context, then close the stream.
         // The frontend shows this error in the Progress Panel.
         send({
