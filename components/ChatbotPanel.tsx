@@ -29,6 +29,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -60,6 +61,9 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 ];
 
 export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as { role?: string })?.role === "admin";
+
   // Controlled state for text input
   const [inputValue, setInputValue] = useState("");
 
@@ -225,25 +229,27 @@ export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
 
       {/* ── Input area ── */}
       <div className="space-y-2">
-        {/* Hidden file input for training doc upload */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".txt,.pdf"
-          className="hidden"
-          onChange={handleFileSelected}
-        />
-
-        {/* Upload button — unchanged from Phase 1 */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          disabled={isUploading}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {isUploading ? "Uploading…" : "Upload training doc"}
-        </Button>
+        {/* Upload button — admin only */}
+        {isAdmin && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.pdf"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isUploading ? "Uploading…" : "Upload training doc"}
+            </Button>
+          </>
+        )}
 
         {/* Message input + Send */}
         <div className="flex gap-2">

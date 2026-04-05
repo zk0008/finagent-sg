@@ -32,12 +32,22 @@ import * as os from "os";
 // Import from lib/ingest (not scripts/ingest) so Next.js build does not
 // accidentally execute the CLI script's main() function during page-data collection.
 import { ingestFile } from "@/lib/ingest";
+import { auth } from "@/auth";
 
 // Allowed MIME types and extensions for uploaded training documents
 const ALLOWED_EXTENSIONS = new Set([".txt", ".pdf"]);
 const ALLOWED_MIME_TYPES = new Set(["text/plain", "application/pdf"]);
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Require admin role — only admins may ingest documents into the shared knowledge base
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ success: false, error: "Unauthorised" }, { status: 401 });
+  }
+  if ((session.user as { role?: string }).role !== "admin") {
+    return NextResponse.json({ success: false, error: "Forbidden — admin role required" }, { status: 403 });
+  }
+
   let tempFilePath: string | null = null;
 
   try {
