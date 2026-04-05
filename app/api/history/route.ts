@@ -1,13 +1,13 @@
 /**
  * app/api/history/route.ts
  *
- * GET /api/history?schemaName=<schema>&type=<fs|model|payroll>
+ * GET /api/history?schemaName=<schema>&type=<fs|model|payroll|tax>
  *
  * Returns past outputs for a given client schema and output type.
  *
  * Query params:
  *   schemaName (required) — the client schema (e.g. "techsoft_pte_ltd")
- *   type (required)       — "fs" | "model" | "payroll"
+ *   type (required)       — "fs" | "model" | "payroll" | "tax"
  *
  * Response for type=fs:
  *   { items: FSHistoryItem[] }
@@ -20,6 +20,10 @@
  * Response for type=payroll:
  *   { items: PayrollHistoryItem[] }
  *   Each: { id, created_at, period_month, status, employee_count, total_gross }
+ *
+ * Response for type=tax:
+ *   { items: TaxHistoryItem[] }
+ *   Each: { id, created_at, year_of_assessment, form_type, chargeable_income, tax_payable, exemption_scheme }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -49,6 +53,16 @@ export type PayrollHistoryItem = {
   status: string;
 };
 
+export type TaxHistoryItem = {
+  id: string;
+  created_at: string;
+  year_of_assessment: number;
+  form_type: string;
+  chargeable_income: string;
+  tax_payable: string;
+  exemption_scheme: string;
+};
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = req.nextUrl;
   const schemaName = searchParams.get("schemaName");
@@ -57,8 +71,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!schemaName) {
     return NextResponse.json({ error: "schemaName is required" }, { status: 400 });
   }
-  if (type !== "fs" && type !== "model" && type !== "payroll") {
-    return NextResponse.json({ error: "type must be fs | model | payroll" }, { status: 400 });
+  if (type !== "fs" && type !== "model" && type !== "payroll" && type !== "tax") {
+    return NextResponse.json({ error: "type must be fs | model | payroll | tax" }, { status: 400 });
   }
 
   if (!await verifySchemaAccess(schemaName)) {
@@ -108,21 +122,46 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── Payroll Runs history ───────────────────────────────────────────────────
+  if (type === "payroll") {
+    const { data, error } = await supabase
+      .schema(schemaName)
+      .from("payroll_runs")
+      .select("id, created_at, run_month, status")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const items: PayrollHistoryItem[] = (data ?? []).map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      run_month: row.run_month,
+      status: row.status,
+    }));
+
+    return NextResponse.json({ items });
+  }
+
+  // ── Tax Computations history ───────────────────────────────────────────────
   const { data, error } = await supabase
     .schema(schemaName)
-    .from("payroll_runs")
-    .select("id, created_at, run_month, status")
+    .from("tax_computations")
+    .select("id, created_at, year_of_assessment, form_type, chargeable_income, tax_payable, exemption_scheme")
     .order("created_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const items: PayrollHistoryItem[] = (data ?? []).map((row) => ({
+  const items: TaxHistoryItem[] = (data ?? []).map((row) => ({
     id: row.id,
     created_at: row.created_at,
-    run_month: row.run_month,
-    status: row.status,
+    year_of_assessment: row.year_of_assessment,
+    form_type: row.form_type,
+    chargeable_income: String(row.chargeable_income),
+    tax_payable: String(row.tax_payable),
+    exemption_scheme: row.exemption_scheme,
   }));
 
   return NextResponse.json({ items });

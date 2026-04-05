@@ -80,7 +80,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Save to Supabase tax_computations table
   const { data: saved, error: dbError } = await supabase
-    .from(`${schemaName}.tax_computations`)
+    .schema(schemaName)
+    .from("tax_computations")
     .insert({
       entity_id:             input.entity_id,
       fiscal_year_id:        input.fiscal_year_id,

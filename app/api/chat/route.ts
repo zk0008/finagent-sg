@@ -60,11 +60,17 @@ const RequestSchema = z.object({
 // Case-insensitive match against any of these phrases.
 const CORRECTION_KEYWORDS = [
   "should be",
+  "should include",
+  "should always",
+  "should note",
+  "should update",
   "incorrect",
   "wrong",
   "change",
   "update",
   "fix",
+  "always include",
+  "add back",
 ];
 
 function isCorrection(message: string): boolean {

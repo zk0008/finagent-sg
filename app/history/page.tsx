@@ -34,9 +34,10 @@ import type {
   FSHistoryItem,
   ModelHistoryItem,
   PayrollHistoryItem,
+  TaxHistoryItem,
 } from "@/app/api/history/route";
 
-type TabType = "fs" | "model" | "payroll";
+type TabType = "fs" | "model" | "payroll" | "tax";
 
 export default function HistoryPage() {
   const [clients, setClients] = useState<ClientSummary[]>([]);
@@ -46,6 +47,7 @@ export default function HistoryPage() {
   const [fsItems, setFsItems] = useState<FSHistoryItem[]>([]);
   const [modelItems, setModelItems] = useState<ModelHistoryItem[]>([]);
   const [payrollItems, setPayrollItems] = useState<PayrollHistoryItem[]>([]);
+  const [taxItems, setTaxItems] = useState<TaxHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +82,8 @@ export default function HistoryPage() {
       if (!res.ok) throw new Error(data.error ?? "Failed to load history");
       if (tab === "fs") setFsItems(data.items);
       else if (tab === "model") setModelItems(data.items);
-      else setPayrollItems(data.items);
+      else if (tab === "payroll") setPayrollItems(data.items);
+      else setTaxItems(data.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -172,6 +175,7 @@ export default function HistoryPage() {
             <TabsTrigger value="fs">Financial Statements</TabsTrigger>
             <TabsTrigger value="model">Financial Models</TabsTrigger>
             <TabsTrigger value="payroll">Payroll Runs</TabsTrigger>
+            <TabsTrigger value="tax">Tax Computations</TabsTrigger>
           </TabsList>
 
           {/* ── Financial Statements ── */}
@@ -291,6 +295,48 @@ export default function HistoryPage() {
               </Table>
             )}
           </TabsContent>
+          {/* ── Tax Computations ── */}
+          <TabsContent value="tax">
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : taxItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tax computations saved yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date Generated</TableHead>
+                    <TableHead className="w-24">YA</TableHead>
+                    <TableHead className="w-28">Form Type</TableHead>
+                    <TableHead className="w-32">Chargeable Income</TableHead>
+                    <TableHead className="w-32">Tax Payable</TableHead>
+                    <TableHead className="w-32">Exemption</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {taxItems.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="text-sm">{formatDate(item.created_at)}</TableCell>
+                      <TableCell className="text-sm font-medium">YA {item.year_of_assessment}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{item.form_type.replace("_", " ")}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        SGD {parseFloat(item.chargeable_income).toLocaleString("en-SG", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        SGD {parseFloat(item.tax_payable).toLocaleString("en-SG", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {item.exemption_scheme === "new_startup" ? "New Start-Up" : "Partial"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+
         </Tabs>
       </main>
 

@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
   // the font files cannot be found (ENOENT). Marking pdfkit as an external
   // package tells Next.js to require() it at runtime instead of bundling it,
   // so the font paths remain correct.
-  serverExternalPackages: ["pdfkit"],
+  serverExternalPackages: ["pdfkit", "chromadb", "@chroma-core/default-embed"],
 };
 
 export default nextConfig;

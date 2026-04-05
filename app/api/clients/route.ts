@@ -381,5 +381,22 @@ function buildSchemaSQL(schemaName: string): string {
     CREATE UNIQUE INDEX IF NOT EXISTS ${schemaName}_one_active_model
       ON ${schemaName}.financial_models (entity_id)
       WHERE is_active = TRUE;
+
+    CREATE TABLE IF NOT EXISTS ${schemaName}.tax_computations (
+      id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      entity_id             UUID NOT NULL REFERENCES ${schemaName}.entities(id) ON DELETE CASCADE,
+      fiscal_year_id        UUID REFERENCES ${schemaName}.fiscal_years(id) ON DELETE SET NULL,
+      year_of_assessment    INTEGER NOT NULL,
+      form_type             TEXT NOT NULL,
+      accounting_profit     NUMERIC(18, 2) NOT NULL,
+      tax_adjustments       JSONB,
+      chargeable_income     NUMERIC(18, 2) NOT NULL,
+      exemption_scheme      TEXT NOT NULL,
+      tax_before_rebate     NUMERIC(18, 2) NOT NULL,
+      cit_rebate            NUMERIC(18, 2) NOT NULL DEFAULT 0,
+      cit_rebate_cash_grant NUMERIC(18, 2) NOT NULL DEFAULT 0,
+      tax_payable           NUMERIC(18, 2) NOT NULL,
+      created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `;
 }
