@@ -24,8 +24,10 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 | Phase 5 | Continuous Improvement — fine-tuning, Langfuse | **Complete** |
 | Phase 6 | Polish & Deploy | **Complete** |
 | Phase 7 | Corporate Tax Computation | **Complete** |
+| RAG Evaluation | Python RAGAS pipeline in ml/ | **Complete** |
+| Context7 MCP | Configured in .claude/mcp.json | **Complete** |
 
-**All phases complete. Project is production-ready. GitHub push deferred — user to push after testing.**
+**All phases complete. Project is production-ready.**
 
 ---
 
@@ -47,7 +49,8 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 
 ## MCP
 
-- **Context7 MCP is configured** — Claude Code will automatically fetch up-to-date library docs for Next.js, Vercel AI SDK, Supabase, and other dependencies when needed.
+- **Context7 MCP is configured** — activates automatically on every Claude Code session. Provides live, version-accurate documentation for: Next.js 15, Vercel AI SDK 6, Supabase JS, exceljs, pdfkit.
+- Configuration file: `.claude/mcp.json` (gitignored — installed per-machine via Claude Code settings).
 
 ---
 
@@ -70,6 +73,8 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 - No new Langfuse instrumentation until explicitly requested
 - No fine-tuning trigger until explicitly requested
 - No GST or consolidation (future features — Phase 7 covers corporate tax)
+- No GST returns — ask user before building
+- No ECI e-filing integration with IRAS — ask user before building
 - **Do not modify Phase 0 or Phase 1 files unless strictly necessary — ask the user first**
 - Phase 7 files: no GST computation, no group relief, no capital allowance auto-calculation, no instalment plan — ask user first
 
@@ -174,6 +179,8 @@ finagent-sg/
 │   ├── requirements.txt            # Python dependencies
 │   ├── .env.example                # Environment variable template
 │   └── README.md                   # Setup and usage instructions
+├── .claude/
+│   └── mcp.json                    # Context7 MCP server configuration (gitignored)
 └── .env.local
 ```
 

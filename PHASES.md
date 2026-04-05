@@ -667,3 +667,30 @@ python3 evaluate_rag.py
 | Uses `gpt-4.1-mini` for answer generation | Mirrors the chatbot question path in `app/api/chat/route.ts` |
 | TOP_K=5 chunks per question | Slightly higher than chatbot (4) to give RAGAS more context for recall measurement |
 | Results saved to CSV (gitignored) | Generated data, not source code — excluded from version control |
+
+---
+
+## Context7 MCP
+**Status:** Configured
+**Date:** 2026-04-05
+
+### Configuration
+- **File:** `.claude/mcp.json` (gitignored — installed per-machine via Claude Code settings)
+- **Server:** `@upstash/context7-mcp` — fetches live, version-accurate library documentation on demand
+
+### Purpose
+Provides Claude Code with up-to-date documentation for project dependencies so generated code uses current APIs, not stale training data. Activates automatically on every Claude Code session.
+
+### Libraries Covered
+| Library | Why It Matters |
+|---------|---------------|
+| Next.js 15 | App Router patterns, server components, route handlers |
+| Vercel AI SDK 6 | `generateText`, `streamText`, tool use, SSE streaming |
+| Supabase JS | Schema-per-client queries, RLS, storage |
+| exceljs | Workbook/sheet API for trial balance parsing and Excel export |
+| pdfkit | PDF layout, font handling, page layout constants |
+
+### How to Activate on a New Machine
+1. Open Claude Code settings → MCP Servers
+2. Add server: `npx -y @upstash/context7-mcp`
+3. Or copy `.claude/mcp.json` from another machine (not committed to git)
