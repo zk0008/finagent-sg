@@ -53,6 +53,12 @@ skills/sg-accounting-standards/SKILL.md
 skills/sg-payroll-cpf/SKILL.md
 skills/sg-corporate-tax/SKILL.md
 
+# ML pipeline
+ml/.env
+ml/venv/
+ml/rag_evaluation_results.csv
+ml/__pycache__/
+
 # vercel
 .vercel
 

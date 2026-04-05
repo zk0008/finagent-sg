@@ -1,0 +1,42 @@
+[
+  {
+    "question": "What are the criteria for small company audit exemption in Singapore?",
+    "expected_answer": "A company qualifies for audit exemption if it meets at least 2 of 3 criteria: annual revenue not more than $10 million, total assets not more than $10 million, and number of employees not more than 50."
+  },
+  {
+    "question": "How should current and non-current assets be classified under SFRS?",
+    "expected_answer": "Current assets are those expected to be realised within 12 months or the operating cycle. Non-current assets are held for longer term use such as property, plant and equipment and intangible assets."
+  },
+  {
+    "question": "What disclosures are required for related party transactions under SFRS 24?",
+    "expected_answer": "Companies must disclose the nature of the related party relationship, the amount of transactions, outstanding balances, and key management personnel compensation."
+  },
+  {
+    "question": "What is the CPF contribution rate for Singapore citizens aged 55 and below?",
+    "expected_answer": "For Singapore citizens aged 55 and below, the employer contributes 17% and the employee contributes 20%, totalling 37% of ordinary wages."
+  },
+  {
+    "question": "What is the ACRA annual return filing deadline for private companies?",
+    "expected_answer": "Private companies must file their annual return within 7 months after the financial year end."
+  },
+  {
+    "question": "What is the corporate income tax rate in Singapore?",
+    "expected_answer": "The corporate income tax rate in Singapore is a flat 17% of chargeable income for both local and foreign companies."
+  },
+  {
+    "question": "What are the revenue thresholds for Form C-S filing in Singapore?",
+    "expected_answer": "Form C-S is for companies with annual revenue of $5 million or below. Form C-S Lite is for companies with revenue of $200,000 or below."
+  },
+  {
+    "question": "How is depreciation treated under SFRS for property plant and equipment?",
+    "expected_answer": "Depreciation is allocated systematically over the useful life of the asset. Common methods include straight-line and reducing balance. The method used must be disclosed in the accounting policies."
+  },
+  {
+    "question": "What is the ordinary wage ceiling for CPF contributions from January 2026?",
+    "expected_answer": "The monthly ordinary wage ceiling for CPF contributions is $8,000 from January 2026."
+  },
+  {
+    "question": "What financial statements are required for a Singapore private limited company?",
+    "expected_answer": "A Singapore private limited company must prepare a balance sheet, profit and loss statement, cash flow statement, statement of changes in equity, and notes to the financial statements."
+  }
+]

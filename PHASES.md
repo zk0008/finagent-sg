@@ -620,3 +620,50 @@ Note: The exact skill names in the blueprint (`frontend-design`, `nextjs-perform
 - Group relief — ask user before building
 - Auto-populate accounting_profit/revenue from saved FS structured_data — ask user first
 - Instalment payment plan computation — ask user before building
+
+---
+
+## RAG Evaluation Pipeline
+**Status:** Complete
+**Location:** `ml/` folder — Python only, separate from Next.js app
+
+### Files Built
+| File | Purpose |
+|------|---------|
+| `ml/evaluate_rag.py` | Main RAGAS evaluation script — queries ChromaDB, generates answers, measures 4 metrics |
+| `ml/test_questions.json` | 10 SG accounting test questions with expected answers (SFRS, CPF, IRAS, ACRA) |
+| `ml/requirements.txt` | Python dependencies: chromadb, openai, ragas, python-dotenv, pandas |
+| `ml/.env.example` | Environment template: OPENAI_API_KEY, CHROMA_HOST, CHROMA_PORT, CHROMA_COLLECTION |
+| `ml/README.md` | Setup and usage instructions |
+
+### Metrics Measured
+| Metric | Description |
+|--------|-------------|
+| `faithfulness` | Is the answer grounded in retrieved context? (1.0 = no hallucination) |
+| `answer_relevancy` | Does the answer address the question? |
+| `context_precision` | Are retrieved chunks relevant (signal over noise)? |
+| `context_recall` | Does context contain everything needed to answer? |
+
+### How to Run
+```bash
+cd ml
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Fill in OPENAI_API_KEY in ml/.env
+python3 evaluate_rag.py
+```
+
+### Prerequisites Before Running
+1. ChromaDB must be running: `docker compose --env-file docker-compose.env up -d`
+2. Documents must be ingested: `npx tsx scripts/ingest.ts` (from project root)
+
+### Decisions
+| Decision | Reason |
+|----------|--------|
+| Separate Python pipeline (not TypeScript) | RAGAS requires a Python ecosystem (HuggingFace datasets, LLM judges); no Python in Next.js |
+| Uses `text-embedding-3-small` for queries | Must match the embedding model used in `lib/ingest.ts` — different models = incompatible embedding spaces |
+| Uses `gpt-4.1-mini` for answer generation | Mirrors the chatbot question path in `app/api/chat/route.ts` |
+| TOP_K=5 chunks per question | Slightly higher than chatbot (4) to give RAGAS more context for recall measurement |
+| Results saved to CSV (gitignored) | Generated data, not source code — excluded from version control |

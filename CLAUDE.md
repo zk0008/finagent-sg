@@ -57,7 +57,7 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 - **Financial arithmetic:** always use `bignumber.js` — never native JS math for any financial calculation.
 - **AI vs Tools:** the LLM decides structure and logic; TypeScript tool functions do the actual computation. Never let the LLM compute numbers directly.
 - **Comments:** every file must include a comment block at the top explaining what it does and what it will do when fully built.
-- **TypeScript only** — no Python anywhere in the Next.js project.
+- **TypeScript only** — no Python anywhere in the Next.js project. Python is reserved for the ML pipeline only (`ml/` folder — run manually, separate from the Next.js app).
 - **SSE streaming:** use Web Streams API (ReadableStream) in App Router routes — not Node.js `res.write()`.
 - **Buffer → Response:** convert `Buffer` to `new Uint8Array(buffer)` before passing to `new Response()` in App Router.
 - **PDF generation:** uses pdfkit — files are generated as `Promise<Buffer>` and converted to `Uint8Array` for the response.
@@ -168,6 +168,12 @@ finagent-sg/
 ├── docker-compose.yml              # Phase 5: Langfuse + ChromaDB infrastructure
 ├── docker-compose.env.example      # Phase 5: Docker secrets template
 ├── vercel.json                     # Phase 6: Vercel function timeout config
+├── ml/                             # Python RAG evaluation pipeline (RAGAS) — run manually, separate from Next.js app
+│   ├── evaluate_rag.py             # Main evaluation script
+│   ├── test_questions.json         # 10 SG accounting test questions
+│   ├── requirements.txt            # Python dependencies
+│   ├── .env.example                # Environment variable template
+│   └── README.md                   # Setup and usage instructions
 └── .env.local
 ```
 

@@ -1,0 +1,22 @@
+# FinAgent-SG — ML Pipeline Dependencies
+#
+# Install inside a virtual environment:
+#   python3 -m venv venv
+#   source venv/bin/activate
+#   pip install -r requirements.txt
+
+# ChromaDB Python client — connects to the local Docker-hosted ChromaDB instance
+chromadb==1.0.0
+
+# OpenAI Python SDK — for embeddings and answer generation
+openai==1.75.0
+
+# RAGAS — RAG evaluation framework
+# Measures faithfulness, answer relevancy, context precision, context recall
+ragas==0.2.15
+
+# python-dotenv — loads ml/.env into os.environ
+python-dotenv==1.1.0
+
+# pandas — used by RAGAS internally and for CSV export
+pandas==2.2.3
