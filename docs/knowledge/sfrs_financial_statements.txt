@@ -1,0 +1,100 @@
+SFRS Financial Statements Requirements for Singapore Private Limited Companies
+
+SOURCE: Singapore Financial Reporting Standards (SFRS), ACRA
+
+---
+
+REQUIRED FINANCIAL STATEMENTS
+
+A Singapore private limited company must prepare a complete set of financial statements comprising:
+
+1. Statement of Financial Position (Balance Sheet)
+   - Shows assets, liabilities, and equity at the reporting date
+   - Assets and liabilities classified as current or non-current
+
+2. Statement of Profit or Loss and Other Comprehensive Income (Income Statement / P&L)
+   - Shows revenue, expenses, and profit or loss for the period
+   - Other comprehensive income items presented separately
+
+3. Statement of Cash Flows
+   - Shows cash inflows and outflows from operating, investing, and financing activities
+   - Direct or indirect method permitted; indirect method more commonly used in Singapore
+
+4. Statement of Changes in Equity
+   - Shows movements in share capital, retained earnings, and reserves during the period
+
+5. Notes to the Financial Statements
+   - Accounting policies
+   - Supporting detail for each line item
+   - Contingencies and commitments
+   - Related party disclosures
+   - Subsequent events
+
+---
+
+CURRENT VS NON-CURRENT CLASSIFICATION (SFRS 1-1)
+
+Current Assets
+An asset is classified as current when it meets any of the following criteria:
+- Expected to be realised, sold, or consumed within the normal operating cycle
+- Held primarily for the purpose of trading
+- Expected to be realised within 12 months after the reporting date
+- Cash or cash equivalent (unless restricted for more than 12 months)
+
+Examples of current assets: cash and bank balances, trade receivables, inventories, prepayments, short-term deposits
+
+Non-Current Assets
+All other assets that do not meet the current asset criteria are classified as non-current.
+- Held for longer-term use in the business
+- Not expected to be realised within 12 months
+
+Examples of non-current assets: property, plant and equipment (PPE), intangible assets, investment properties, long-term deposits, deferred tax assets
+
+Current Liabilities
+A liability is classified as current when:
+- Expected to be settled within the normal operating cycle
+- Held primarily for the purpose of trading
+- Due to be settled within 12 months after the reporting date
+- The company does not have an unconditional right to defer settlement beyond 12 months
+
+Examples: trade payables, accruals, short-term borrowings, current portion of long-term loans, tax payable
+
+Non-Current Liabilities
+All liabilities not classified as current.
+Examples: long-term bank loans, deferred tax liabilities, finance lease liabilities
+
+---
+
+GOING CONCERN
+
+Directors must assess the company's ability to continue as a going concern at each reporting date.
+If there is material uncertainty, this must be disclosed in the notes.
+If the company is not a going concern, financial statements must be prepared on a different basis (e.g. liquidation basis) and this must be disclosed.
+
+---
+
+PRESENTATION CURRENCY
+
+Singapore companies typically present financial statements in Singapore Dollars (SGD).
+A company may present in a different currency if that is its functional currency, but must disclose this.
+
+---
+
+COMPARATIVE INFORMATION
+
+Financial statements must include comparative information for the preceding period for all amounts reported.
+This applies to the balance sheet, P&L, cash flow statement, and statement of changes in equity.
+
+---
+
+REPORTING DATE
+
+Most Singapore companies have a financial year end (FYE) of 31 December, 30 June, or 31 March, but any date is permitted.
+The FYE is registered with ACRA and determines the filing deadline for the annual return.
+
+---
+
+MATERIALITY
+
+Information is material if its omission or misstatement could influence the economic decisions of users.
+Immaterial items need not be separately disclosed but must not be used to obscure material information.

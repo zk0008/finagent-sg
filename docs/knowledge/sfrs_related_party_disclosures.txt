@@ -1,0 +1,103 @@
+Related Party Disclosures — SFRS 24
+
+SOURCE: Singapore Financial Reporting Standard 1-24 (SFRS 1-24), Accounting Standards Council Singapore
+
+---
+
+OBJECTIVE
+
+SFRS 1-24 requires disclosure of related party relationships, transactions, and outstanding balances so that users of financial statements can understand how the reporting entity may be affected by related parties.
+
+---
+
+DEFINITION OF RELATED PARTY
+
+A party is related to an entity if:
+- The party is a person or a close member of that person's family if that person:
+  (a) has control or joint control over the reporting entity
+  (b) has significant influence over the reporting entity
+  (c) is a member of the key management personnel of the reporting entity or its parent
+
+- The party is an entity where any of the following conditions apply:
+  (a) The entity and the reporting entity are members of the same group
+  (b) One entity is an associate or joint venture of the other
+  (c) Both entities are joint ventures of the same third party
+  (d) One entity is a joint venture of a third entity and the other is an associate of that same third entity
+  (e) The entity is a post-employment benefit plan for the employees of either the reporting entity or a related entity
+  (f) The entity is controlled or jointly controlled by a person identified above
+  (g) A person identified in (a) above has significant influence over the entity or is a member of its key management personnel
+  (h) The entity, or any member of a group of which it is a part, provides key management personnel services to the reporting entity or its parent
+
+Common related parties for Singapore private limited companies:
+- Shareholders (especially controlling shareholders)
+- Directors and their family members
+- Subsidiaries, associates, and joint ventures
+- Entities controlled by directors or shareholders
+- Key management personnel
+
+---
+
+REQUIRED DISCLOSURES
+
+Relationships
+Even if there were no transactions, disclose the name of the entity's parent and ultimate controlling party.
+Disclose the nature of the relationship when the entity is controlled by related parties.
+
+Transactions
+If transactions occurred between the entity and its related parties, disclose:
+1. The nature of the related party relationship
+2. Information about the transactions — sufficient to understand the potential effect on the financial statements
+3. The amount of the transactions
+4. Outstanding balances at reporting date — terms and conditions, whether secured, settlement terms
+5. Provisions for doubtful debts related to outstanding balances
+6. Expense recognised in the period for bad or doubtful debts due from related parties
+
+Types of related party transactions common in Singapore SMEs:
+- Director's fees and remuneration
+- Director's loans to/from the company
+- Loans to/from shareholders
+- Management fees charged by related entities
+- Rental of property to/from related parties
+- Sales of goods or services to related entities
+- Purchase of goods or services from related entities
+- Guarantees provided by directors or shareholders
+
+---
+
+KEY MANAGEMENT PERSONNEL (KMP)
+
+Key management personnel are those persons having authority and responsibility for planning, directing, and controlling activities of the entity — typically directors and senior management.
+
+Disclosures required for KMP compensation:
+- Short-term employee benefits (salaries, wages, bonuses, CPF contributions)
+- Post-employment benefits
+- Other long-term benefits
+- Termination benefits
+- Share-based payments
+
+Total KMP compensation must be disclosed, broken into each category above.
+
+---
+
+GOVERNMENT-RELATED ENTITIES
+
+Entities that are controlled, jointly controlled, or significantly influenced by a government are exempt from some disclosure requirements when transacting with other government-related entities (the government-related entity exemption). This typically applies to GLCs and statutory boards, not private limited companies.
+
+---
+
+ARMS-LENGTH TRANSACTIONS
+
+The standard does not require disclosure of whether transactions were made on an arm's-length basis unless the entity can substantiate this claim. Simply stating "transactions were at arm's length" without substantiation is not appropriate.
+
+---
+
+PRACTICAL APPLICATION FOR SINGAPORE SMEs
+
+For small Singapore private limited companies, common related party disclosures include:
+- Director's salaries, CPF, and bonuses paid during the year
+- Director's current account balances (amounts owed to/from directors)
+- Loans from shareholders (interest-free or otherwise)
+- Transactions with companies owned by the same directors/shareholders
+- Guarantees from directors for company bank facilities
+
+Note: Related party transactions are a key area of focus for ACRA and auditors. Ensure all related party transactions are identified and properly disclosed even if they appear minor.

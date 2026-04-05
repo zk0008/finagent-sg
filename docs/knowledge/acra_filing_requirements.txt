@@ -1,0 +1,131 @@
+ACRA Filing Requirements for Singapore Private Limited Companies
+
+SOURCE: Accounting and Corporate Regulatory Authority (ACRA), Companies Act (Cap. 50), Singapore
+
+---
+
+ANNUAL RETURN FILING
+
+All Singapore-incorporated companies must file an annual return with ACRA via BizFile+.
+
+Deadline:
+- Private companies: within 7 months after the financial year end (FYE)
+- Public companies: within 5 months after the FYE
+
+The annual return must include:
+- Confirmation of the company's particulars (registered address, directors, shareholders, share capital)
+- Financial statements (unless exempted)
+- Solvency statement (for companies exempt from audit)
+
+Filing fee: SGD 60 per annual return (as at 2026).
+
+---
+
+AUDIT EXEMPTION — SMALL COMPANY CRITERIA
+
+A private company qualifies for audit exemption as a "small company" if it meets at least 2 of the following 3 criteria for the immediate past 2 consecutive financial years:
+
+1. Annual revenue not more than SGD 10 million
+2. Total assets not more than SGD 10 million
+3. Number of employees not more than 50
+
+A company that qualifies as small in its first financial year is also exempt for that year.
+
+A small company that is part of a group must also satisfy the small group criteria:
+- The group as a whole meets at least 2 of 3 criteria: revenue ≤ $10M, assets ≤ $10M, employees ≤ 50
+
+Companies that CANNOT be exempt from audit regardless of size:
+- Public companies
+- Subsidiary of a public company
+- Companies regulated by MAS (banks, insurers, capital market intermediaries)
+- Companies listed on a securities exchange
+
+---
+
+EXEMPT PRIVATE COMPANY (EPC)
+
+An exempt private company (EPC) is a private company with:
+- No more than 20 shareholders
+- No corporate shareholders
+
+EPCs have additional filing exemptions:
+- Exempt from filing financial statements with annual return if revenue is below SGD 5 million
+- Directors must still lodge a solvency statement confirming the company can pay its debts
+
+---
+
+FILING FINANCIAL STATEMENTS WITH ACRA
+
+Companies required to file financial statements must submit them in XBRL format via BizFile+.
+
+XBRL filing requirements:
+- Full XBRL: companies with revenue > SGD 500,000 that are not small companies
+- Simplified XBRL: insolvent EPCs with revenue ≤ SGD 500,000
+- Financial statement highlights: some EPC categories
+
+Dormant companies: exempt from preparing and filing financial statements if they have been dormant since incorporation or since the end of the previous financial year.
+
+---
+
+REGISTER OF CONTROLLERS
+
+All Singapore companies must maintain a Register of Registrable Controllers (RORC) and lodge it with ACRA.
+Controllers: individuals or legal entities with significant interest (≥25% of shares or votes) or significant control.
+Must be lodged within 2 business days of any changes.
+
+---
+
+REGISTER OF NOMINEE DIRECTORS
+
+Companies with nominee directors must maintain a register identifying the nominators.
+This was introduced under the Companies (Amendment) Act to improve corporate transparency.
+
+---
+
+CHANGES TO COMPANY PARTICULARS
+
+Changes must be filed with ACRA within the required timeframes:
+- Change of company name: file before using the new name
+- Change of registered office address: within 14 days
+- Change of director/secretary particulars: within 14 days
+- Allotment of new shares: within 14 days
+- Transfer of shares: within 14 days of registration
+
+---
+
+STRIKING OFF
+
+ACRA may strike off a company that is:
+- Not carrying on business
+- Not in operation
+
+A company may apply for voluntary striking off if:
+- Has not commenced business or has ceased business
+- Has no assets or liabilities
+- Not involved in any legal proceedings
+- Not subject to any ongoing IRAS investigations
+
+---
+
+BUSINESS PROFILE
+
+A Business Profile (BizFile+ extract) is the official record of a company's registration details.
+Used for opening bank accounts, applying for licences, and signing contracts.
+Can be purchased from BizFile+ at any time for a small fee.
+
+---
+
+COMPANY SECRETARY
+
+Every Singapore company must appoint a company secretary within 6 months of incorporation.
+The company secretary must be a resident of Singapore.
+The sole director of a company cannot also be the company secretary.
+The company secretary maintains statutory registers, ensures timely filing, and advises on compliance.
+
+---
+
+DIRECTORS
+
+A Singapore company must have at least one director who is ordinarily resident in Singapore.
+Directors must be at least 18 years old and not bankrupt.
+Sole director must not also be the company secretary.

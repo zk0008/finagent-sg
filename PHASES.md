@@ -670,6 +670,27 @@ python3 evaluate_rag.py
 
 ---
 
+## Production Deployment
+**Status:** Live
+**Date:** 2026-04-05
+**URL:** https://finagent-sg.vercel.app
+
+### Details
+- Platform: Vercel (Washington D.C., iad1)
+- Build: Next.js 16.2.1 with Turbopack
+- Vector store: pgvector (Supabase) — ChromaDB is local dev only
+- LLM observability: Langfuse Cloud (cloud.langfuse.com)
+- Auth: NextAuth.js, public registration disabled — admin creates accounts
+
+### Build Fixes Applied
+| Issue | Fix |
+|-------|-----|
+| `@chroma-core/default-embed` `.d.cts` Turbopack module format conflict | `turbopack.ignoreIssue` in `next.config.ts` — package is external (never bundled), false-alarm error suppressed |
+| `useSearchParams()` missing Suspense boundary at `/auth/error` | Split into `page.tsx` (Suspense wrapper) + `AuthErrorContent.tsx` (client component) |
+| `useSearchParams()` missing Suspense boundary at `/corrections` | Split into `page.tsx` (Suspense wrapper) + `CorrectionsContent.tsx` (client component) |
+
+---
+
 ## Context7 MCP
 **Status:** Configured
 **Date:** 2026-04-05

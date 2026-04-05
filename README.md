@@ -1,5 +1,7 @@
 # FinAgent-SG
 
+**Production:** https://finagent-sg.vercel.app
+
 FinAgent-SG is an AI-powered accounting assistant for Singapore private limited companies. It automates the preparation of SFRS-compliant financial statements, financial projections, payroll processing, and corporate tax computation — reducing manual effort and the risk of errors. Built for accountants and finance professionals who manage Singapore-incorporated entities.
 
 ---
@@ -15,7 +17,7 @@ FinAgent-SG is an AI-powered accounting assistant for Singapore private limited 
 
 ## How It Works
 
-1. Register an account and add your client company to the system.
+1. Sign in with your account (public registration is disabled — contact your administrator to be added).
 2. Upload the client's trial balance as an Excel file.
 3. The AI reviews the accounts, applies Singapore Financial Reporting Standards, and generates a full set of financial statements.
 4. Review the output in the browser and download the PDF.
@@ -109,7 +111,7 @@ npm run dev
 # App runs at http://localhost:3000
 ```
 
-Register an account at [http://localhost:3000/auth/register](http://localhost:3000/auth/register) and sign in.
+Sign in at [http://localhost:3000/auth/login](http://localhost:3000/auth/login). User accounts are created by an admin directly in Supabase — public registration is disabled.
 
 ---
 
@@ -214,13 +216,15 @@ See `docs/training/README.txt` for full instructions.
 
 ## Deployment
 
+**Production URL:** https://finagent-sg.vercel.app
+
 The app is deployed on Vercel. ChromaDB and Langfuse run locally during development; in production, ChromaDB is replaced by pgvector (hosted in Supabase).
 
 ```bash
-# Migrate ChromaDB vectors to pgvector before deploying to production (one-time)
+# Migrate ChromaDB vectors to pgvector before deploying to production (one-time — already done)
 npx tsx scripts/migrateChromaToPgvector.ts
 
-# Deploy to Vercel (add all env vars to Vercel dashboard first)
+# Deploy to Vercel
 vercel --prod
 ```
 

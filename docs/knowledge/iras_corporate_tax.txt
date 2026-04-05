@@ -1,0 +1,163 @@
+IRAS Corporate Income Tax Guide for Singapore Companies
+
+SOURCE: Inland Revenue Authority of Singapore (IRAS), Income Tax Act
+
+---
+
+CORPORATE INCOME TAX (CIT) RATE
+
+The corporate income tax rate in Singapore is a flat 17% of chargeable income.
+This flat rate applies to both local and foreign companies.
+There is no graduated tax rate for companies — the 17% applies to all levels of chargeable income.
+
+---
+
+CHARGEABLE INCOME
+
+Chargeable income = accounting profit + add-backs - deductions - tax exemptions
+
+Add-backs (non-deductible expenses added back to accounting profit):
+- Depreciation (replaced by capital allowances)
+- Private motor vehicle expenses (S-plate cars): 100% disallowed
+- Entertainment expenses not wholly and exclusively incurred in production of income
+- Penalties and fines
+- Capital losses
+- Expenses not incurred in producing income
+
+Deductions (expenses allowed against income):
+- Revenue expenses wholly and exclusively incurred in producing income
+- Staff costs (salaries, CPF, bonuses)
+- Rental of business premises
+- Utilities
+- Repairs and maintenance
+- Professional fees (audit, accounting, legal — if revenue in nature)
+- Bad debts written off (if revenue in nature and previously included in income)
+- Capital allowances (in lieu of depreciation)
+
+Capital allowances (Section 19/19A of Income Tax Act):
+- Writing down allowance (WDA) over 3 years for qualifying plant and machinery
+- 1-year write-off for low-value items (cost ≤ SGD 5,000 per item, up to SGD 30,000 total per year)
+- Accelerated capital allowances available under certain schemes
+
+---
+
+TAX EXEMPTION SCHEMES
+
+New Start-Up Tax Exemption (SUTE)
+Applies to qualifying new companies for the first 3 consecutive years of assessment from year of incorporation.
+Conditions:
+- Incorporated in Singapore
+- Tax resident in Singapore
+- Has no more than 20 shareholders throughout the basis period; or all shareholders are individuals
+
+Exemption amounts (YA 2020 onwards):
+- 75% exemption on first SGD 100,000 of chargeable income
+- 50% exemption on next SGD 100,000 of chargeable income
+- Maximum exemption: SGD 125,000 per YA
+
+NOT eligible for SUTE:
+- Investment holding companies
+- Property development companies
+- Companies incorporated outside Singapore
+
+Partial Tax Exemption (PTE)
+For all other companies not qualifying for SUTE.
+Exemption amounts:
+- 75% exemption on first SGD 10,000 of chargeable income
+- 50% exemption on next SGD 190,000 of chargeable income
+- Maximum exemption: SGD 102,500 per YA
+
+---
+
+CORPORATE INCOME TAX (CIT) REBATE — YA 2026
+
+For Year of Assessment 2026:
+- CIT rebate: 40% of tax payable, capped at SGD 30,000
+- CIT rebate cash grant: SGD 1,500 for companies with at least one local employee (Singapore citizen or PR) who has CPF contributions for that employment
+- The cash grant and rebate combined cannot exceed SGD 30,000 per YA
+- The SGD 1,500 cash grant is paid regardless of whether the company has tax payable
+
+How to determine YA 2026:
+- Companies with financial year ending between 1 January 2025 and 31 December 2025 have YA 2026.
+
+---
+
+YEAR OF ASSESSMENT (YA)
+
+The Year of Assessment is the year in which income tax is assessed.
+The basis period for YA 2026 is generally the financial year ending in 2025.
+Income is assessed based on the accounting profits for the basis period.
+
+---
+
+IRAS FORM TYPES
+
+Form C-S Lite:
+- For companies with annual revenue of SGD 200,000 or below
+- Simplest form; no financial statements required to be submitted
+- Available for YA 2020 onwards
+
+Form C-S:
+- For companies with annual revenue of SGD 5 million or below
+- Company must be incorporated in Singapore
+- No capital allowances on renovation/refurbishment claims, no carry-back of losses
+- Shorter form; no financial statements required to be submitted
+
+Form C:
+- For all other companies not qualifying for C-S Lite or C-S
+- Revenue exceeds SGD 5 million, or has complex tax matters
+- Full form; audited/unaudited financial statements and tax computation required
+
+---
+
+FILING DEADLINES
+
+Estimated Chargeable Income (ECI):
+- Must be filed within 3 months after the end of the company's financial year
+- ECI is an estimate of the company's chargeable income for that basis period
+- Companies with annual revenue ≤ SGD 5 million and chargeable income of nil may be exempt from filing ECI
+
+Corporate Tax Return (Form C-S / C-S Lite / Form C):
+- Filing deadline: 30 November of the Year of Assessment
+- e-Filing via myTax Portal using CorpPass
+
+Payment:
+- IRAS issues the Notice of Assessment after reviewing the return
+- Tax payable within 1 month from the date of assessment
+- Instalment payment plans (GIRO) available — up to 10 monthly instalments
+
+---
+
+DOUBLE TAX AGREEMENTS (DTAs)
+
+Singapore has an extensive network of over 80 DTAs with other countries.
+DTAs reduce or eliminate withholding tax on dividends, interest, and royalties paid to foreign entities.
+Tax credits available for foreign taxes paid on income also taxed in Singapore.
+
+---
+
+WITHHOLDING TAX
+
+Singapore companies paying certain types of income to non-residents must withhold tax:
+- Interest: 15%
+- Royalties: 10%
+- Technical assistance fees: 17% (or prevailing CIT rate)
+- Director's fees for non-resident directors: 24% (or prevailing rate)
+- Payments to non-resident professionals: 15% on gross or 22% on net
+Reduced rates may apply under DTAs.
+
+---
+
+GOODS AND SERVICES TAX (GST)
+
+GST is a separate tax from corporate income tax.
+Current GST rate: 9% (effective 1 January 2024).
+Compulsory GST registration: when taxable turnover exceeds SGD 1 million in the past 12 months or is expected to exceed SGD 1 million in the next 12 months.
+Voluntary GST registration: available for businesses below the threshold.
+GST-registered businesses must file GST returns quarterly (most common) or monthly.
+
+---
+
+STARTUP TAX INCENTIVE — ANGEL INVESTOR
+
+Angel Investors Tax Deduction (AITD) scheme: allows approved angel investors to claim 50% tax deduction on qualifying investments made in approved start-up companies.

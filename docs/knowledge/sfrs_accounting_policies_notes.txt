@@ -1,0 +1,125 @@
+SFRS Accounting Policies and Notes to Financial Statements
+
+SOURCE: SFRS 1-1 Presentation of Financial Statements, Accounting Standards Council Singapore
+
+---
+
+ACCOUNTING POLICIES
+
+Accounting policies are the specific principles, bases, conventions, rules and practices applied by an entity in preparing and presenting financial statements.
+
+Selection of accounting policies:
+When a SFRS applies to a transaction, the accounting policy must be selected by applying that SFRS.
+When no SFRS applies specifically, management uses judgement to develop a policy that results in relevant and reliable information.
+
+Consistency:
+An entity must apply its accounting policies consistently across periods.
+Changes are permitted only if required by a new SFRS or if the change results in more reliable and relevant financial information.
+
+---
+
+NOTES TO FINANCIAL STATEMENTS — REQUIRED DISCLOSURES
+
+1. BASIS OF PREPARATION
+State that the financial statements have been prepared in accordance with SFRS (or SFRS for SE).
+State the measurement basis (historical cost, or other if used).
+State the functional and presentation currency.
+
+2. SIGNIFICANT ACCOUNTING POLICIES
+Disclose all accounting policies relevant to understanding the financial statements, including:
+- Revenue recognition policy
+- Basis for consolidation (for group accounts)
+- Basis for translation of foreign currencies
+- PPE — measurement basis and depreciation methods and rates
+- Intangible assets — measurement basis and amortisation methods
+- Financial instruments — classification and measurement
+- Inventories — cost formula and measurement basis
+- Leases — lessee accounting policy
+- Income taxes — current and deferred tax policy
+- Provisions and contingencies
+
+3. SOURCES OF ESTIMATION UNCERTAINTY
+Disclose key assumptions about the future and major sources of estimation uncertainty that have a significant risk of resulting in material adjustments within the next financial year.
+Examples: useful life of PPE, recoverability of deferred tax assets, outcome of pending litigation.
+
+4. REVENUE
+Disclose revenue broken down by type or major category.
+Show disaggregation of revenue that depicts how the nature, amount, timing, and uncertainty of revenue and cash flows are affected by economic factors.
+Disclose significant judgements made in applying SFRS 15.
+
+5. PROPERTY, PLANT AND EQUIPMENT
+For each class of PPE, disclose:
+- Gross carrying amount and accumulated depreciation at beginning and end of period
+- Additions, disposals, depreciation charge, and impairment losses
+- Useful lives or depreciation rates
+- Depreciation method used
+- Net carrying amount at end of period
+
+6. TRADE AND OTHER RECEIVABLES
+Breakdown of receivables: trade receivables, other receivables, deposits, prepayments.
+Allowance for impairment — movement during the year.
+Credit risk concentration.
+
+7. INVENTORIES
+Cost formula used (FIFO or weighted average).
+Carrying amount by classification (raw materials, WIP, finished goods).
+Amount of inventories recognised as expense (cost of goods sold).
+Amount of any write-down to NRV.
+
+8. TRADE AND OTHER PAYABLES
+Breakdown: trade payables, accruals, other payables.
+Currency analysis if significant foreign currency exposure.
+
+9. LOANS AND BORROWINGS
+For each loan: amount, interest rate, maturity date, security provided.
+Repayment schedule — amounts due within 1 year and after 1 year.
+Covenants.
+
+10. INCOME TAX
+Current tax — current year charge and prior year adjustments.
+Deferred tax — movements in deferred tax assets and liabilities.
+Reconciliation of effective tax rate to statutory rate.
+Deferred tax balances by category.
+
+11. SHARE CAPITAL
+Number and class of shares authorised (if applicable) and issued.
+Movement in share capital.
+Rights, preferences, restrictions attached to each class.
+
+12. RETAINED EARNINGS / DIVIDENDS
+Movement in retained earnings.
+Dividends declared or paid during the year.
+Dividends declared after reporting date but before financial statements authorised for issue (non-adjusting event; disclose).
+
+13. CONTINGENCIES AND COMMITMENTS
+Contingent liabilities — description, estimate of financial effect, uncertainties.
+Capital commitments — contracted but not provided for in financial statements.
+Operating lease commitments (for pre-SFRS 16 short-term/low value lease exemptions).
+
+14. SUBSEQUENT EVENTS
+Events after the reporting date (adjusting and non-adjusting) up to the date financial statements are authorised for issue.
+Date financial statements were authorised for issue and who gave the authorisation.
+
+---
+
+GOING CONCERN DISCLOSURE
+
+If there are material uncertainties relating to going concern, these must be disclosed prominently.
+Even if the directors conclude going concern is appropriate, material uncertainties must be described.
+If the company is no longer a going concern, the basis of preparation changes and this must be clearly disclosed.
+
+---
+
+DIRECTORS' STATEMENT
+
+Companies must include a Directors' Statement which states:
+1. In the directors' opinion, the financial statements give a true and fair view of the financial position and performance
+2. At the date of the statement, there are reasonable grounds to believe the company can pay its debts as and when they become due
+3. Disclosure of any arrangements for directors to acquire shares or debentures
+
+---
+
+AUTHORISATION DATE
+
+Financial statements must disclose the date they were authorised for issue.
+Events occurring after this date are not required to be reflected or disclosed.

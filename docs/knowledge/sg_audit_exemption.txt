@@ -1,0 +1,138 @@
+Singapore Audit Exemption — Small Company and Exempt Private Company Rules
+
+SOURCE: Companies Act (Cap. 50), ACRA, Singapore
+
+---
+
+AUDIT EXEMPTION OVERVIEW
+
+Singapore introduced audit exemption for small companies under the Companies (Amendment) Act 2014, effective from financial years beginning on or after 1 July 2015.
+
+The purpose is to reduce the compliance burden on small businesses while maintaining appropriate financial reporting standards.
+
+---
+
+SMALL COMPANY CRITERIA
+
+A private company qualifies as a "small company" and is exempt from statutory audit if it meets at least 2 of the following 3 quantitative criteria for the immediate past 2 consecutive financial years:
+
+Criterion 1: Annual revenue not more than SGD 10 million
+Criterion 2: Total assets (gross) not more than SGD 10 million
+Criterion 3: Number of employees not more than 50 (full-time employees at end of financial year)
+
+Key points:
+- Must satisfy at least 2 out of 3 criteria
+- Must be satisfied for 2 consecutive financial years
+- Exception: a company newly incorporated that meets 2 of 3 criteria in its first financial year is exempt for that first year
+
+---
+
+SMALL COMPANY — FIRST YEAR OF INCORPORATION
+
+For a newly incorporated company in its first financial year:
+- Deemed to satisfy the small company criteria if it meets at least 2 of the 3 criteria for that year
+- Does not need 2 consecutive years for the first year
+
+---
+
+LOSING SMALL COMPANY STATUS
+
+A company that previously qualified as a small company will lose its exemption if it fails to meet at least 2 of 3 criteria for 2 consecutive financial years.
+
+---
+
+SMALL GROUP CRITERIA (FOR COMPANIES IN A GROUP)
+
+A company that is part of a group must also qualify as a "small group" in addition to being a small company.
+
+A group is a "small group" if it meets at least 2 of the following 3 criteria for the group as a whole for the immediate past 2 consecutive financial years:
+
+1. Consolidated annual revenue not more than SGD 10 million
+2. Consolidated total assets not more than SGD 10 million
+3. Total number of employees across the group not more than 50
+
+If a company is a small company but its group does not qualify as a small group, the company still requires a statutory audit.
+
+---
+
+COMPANIES THAT CANNOT CLAIM AUDIT EXEMPTION
+
+The following types of companies are NOT eligible for the small company audit exemption regardless of size:
+
+- Public companies (listed or unlisted)
+- Subsidiaries of public companies
+- Companies regulated by the Monetary Authority of Singapore (MAS):
+  - Licensed banks
+  - Insurance companies
+  - Capital markets services licence holders
+  - Finance companies
+  - Moneylenders
+- Companies whose securities are listed on a stock exchange
+
+---
+
+SOLVENCY STATEMENT
+
+When a company is exempt from audit, the directors must lodge a solvency statement with ACRA as part of the annual return.
+
+The solvency statement confirms that:
+- The company will be able to pay its debts as and when they become due during the 12 months immediately following the date of the annual return
+
+This is a directors' responsibility and replaces the assurance previously provided by the statutory audit.
+
+---
+
+EXEMPT PRIVATE COMPANY (EPC) — ADDITIONAL EXEMPTIONS
+
+An Exempt Private Company (EPC) is a private company where:
+- No shares are held by a corporation
+- Has 20 or fewer shareholders
+- All shareholders are individuals (not corporate entities)
+
+EPCs that are also small companies have additional filing exemptions:
+- Not required to file financial statements with ACRA if annual revenue is below SGD 5 million
+- Must still maintain financial records and prepare financial statements (they are just not required to be publicly filed)
+
+EPCs with revenue between SGD 5 million and SGD 10 million:
+- Must file financial statements with annual return
+- Exempt from audit if they qualify as a small company
+
+---
+
+FINANCIAL STATEMENTS STILL REQUIRED
+
+Even if a company is exempt from statutory audit, it must still:
+1. Prepare financial statements in accordance with SFRS (or SFRS for Small Entities if eligible)
+2. Present financial statements to shareholders at the AGM (or by written resolution in lieu of AGM)
+3. Keep proper accounting records for at least 5 years
+
+The audit exemption only removes the requirement for an independent external audit — it does not remove the obligation to prepare and present financial statements.
+
+---
+
+SFRS FOR SMALL ENTITIES
+
+Small companies (as defined above) may choose to adopt SFRS for Small Entities (SFRS for SE) instead of full SFRS.
+SFRS for SE is a simplified set of standards with reduced disclosure requirements.
+It is based on the IASB's IFRS for SMEs.
+Not all SFRS standards apply — many are simplified or eliminated.
+
+Eligibility for SFRS for SE:
+- Must be a small company (meets 2 of 3 criteria)
+- Cannot be publicly accountable (not listed, not a financial institution)
+- Shareholders with > 5% voting rights must not object
+
+---
+
+DETERMINING REVENUE AND TOTAL ASSETS
+
+Revenue: turnover from ordinary activities of the company (excluding GST).
+For trading companies: gross sales
+For service companies: fee income
+For investment holding companies: dividend income and interest income
+
+Total Assets: the gross total assets as shown on the balance sheet at financial year end.
+Does not net off liabilities — it is the total of all assets.
+
+Number of Employees: total number of full-time employees (and part-time employees converted to full-time equivalent).
+Employees at end of financial year.

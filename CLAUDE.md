@@ -27,7 +27,7 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 | RAG Evaluation | Python RAGAS pipeline in ml/ | **Complete** |
 | Context7 MCP | Configured in .claude/mcp.json | **Complete** |
 
-**All phases complete. Project is production-ready.**
+**All phases complete. Production deployed at https://finagent-sg.vercel.app**
 
 ---
 

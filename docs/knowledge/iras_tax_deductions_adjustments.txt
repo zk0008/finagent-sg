@@ -1,0 +1,175 @@
+IRAS Tax Deductions and Common Tax Adjustments for Singapore Companies
+
+SOURCE: Inland Revenue Authority of Singapore (IRAS), Income Tax Act (ITA), Singapore
+
+---
+
+GENERAL DEDUCTIBILITY PRINCIPLE (SECTION 14, ITA)
+
+An expense is tax-deductible if it is:
+- Revenue (not capital) in nature
+- Wholly and exclusively incurred in the production of income
+- Not specifically prohibited by the ITA
+
+If an expense fails any of these tests, it must be added back to arrive at chargeable income.
+
+---
+
+COMMON ADD-BACKS (NON-DEDUCTIBLE EXPENSES)
+
+These items are added back to accounting profit when computing chargeable income:
+
+1. DEPRECIATION
+   - Accounting depreciation is not tax-deductible
+   - Replaced by capital allowances under Section 19/19A of the ITA
+   - Full add-back required; then capital allowances claimed separately
+
+2. PRIVATE MOTOR VEHICLE EXPENSES (S-PLATE / Q-PLATE CARS)
+   - S-plate and Q-plate cars are classified as "S-plated" private vehicles
+   - 100% of all expenses relating to S-plate cars are disallowed:
+     - Depreciation
+     - Petrol and road tax
+     - Repairs and maintenance
+     - Car park charges
+     - Motor insurance
+   - Exception: hire car businesses (taxis, rental companies) where S-plate cars are core business assets
+   - Commercial vehicles (vans, lorries) are fully deductible
+
+3. ENTERTAINMENT EXPENSES
+   - Entertainment expenses are deductible ONLY to the extent they are wholly and exclusively incurred in the production of income
+   - In practice, IRAS allows 100% deduction for bona fide business entertainment
+   - However, entertainment for personal benefit of directors/employees is disallowed
+   - Common partial disallowance: meals where no business purpose demonstrated
+   - Food and beverage for employees at the workplace (e.g. office pantry) is generally deductible
+
+4. FINES AND PENALTIES
+   - Fines and penalties imposed by law are not deductible
+   - Examples: GST penalties, traffic fines, late payment penalties to IRAS
+   - Interest on overdue taxes is also not deductible
+
+5. DONATIONS
+   - Cash donations to non-approved institutions are not deductible
+   - Donations to approved Institutions of Public Character (IPCs) attract 250% tax deduction
+   - In-kind donations also eligible for tax deduction if made to IPCs
+
+6. CAPITAL EXPENDITURE
+   - Capital expenditure is not revenue in nature — not deductible
+   - Instead, capital allowances may be claimed on qualifying plant and machinery
+   - Examples of capital expenditure: purchase of machinery, renovation costs, purchase of IP
+
+7. PROVISIONS
+   - General provisions are not deductible (e.g. general bad debt provisions)
+   - Specific provisions are deductible when the debt is irrecoverable and written off
+
+8. PERSONAL EXPENSES OF DIRECTORS/SHAREHOLDERS
+   - Expenses of a personal nature incurred by directors or shareholders charged to the company
+   - Examples: personal travel, personal insurance, school fees
+
+9. NON-BUSINESS EXPENSES
+   - Expenses not incurred in producing income are disallowed
+   - Examples: expenses for investment activities if investment income is exempt
+
+---
+
+COMMON DEDUCTIONS (TAX-ALLOWABLE EXPENSES)
+
+1. STAFF COSTS
+   - Salaries, wages, and bonuses paid to employees — fully deductible
+   - Employer CPF contributions — fully deductible
+   - Staff training costs — fully deductible
+   - Staff welfare costs (within reasonable limits)
+
+2. RENTAL OF BUSINESS PREMISES
+   - Office/factory/warehouse rental is fully deductible
+
+3. UTILITIES AND COMMUNICATION
+   - Electricity, water, telephone, internet — fully deductible if for business use
+
+4. PROFESSIONAL FEES
+   - Accounting and audit fees — deductible
+   - Legal fees for revenue matters — deductible
+   - Legal fees for capital matters (e.g. acquisition of property) — not deductible
+
+5. REPAIRS AND MAINTENANCE
+   - Revenue repairs to maintain existing assets — deductible
+   - Capital improvements that enhance value — not deductible (capital allowances may apply)
+
+6. INTEREST EXPENSE
+   - Interest on loans used to produce income — deductible (Section 14(1)(a))
+   - Interest on loans for investment in subsidiary — deductible if dividend income is taxable
+   - Interest on loans for private purpose — not deductible
+
+7. INSURANCE
+   - Business insurance premiums — deductible
+   - Key-man insurance (where company is beneficiary) — deductible
+   - Private motor vehicle insurance — not deductible (S-plate car rule)
+
+8. BAD DEBTS
+   - Trade debts written off — deductible if:
+     (a) The debt was previously included in income
+     (b) The debt has been genuinely written off as irrecoverable
+   - Specific provisions for identified bad debts — deductible when reasonable grounds exist
+
+---
+
+CAPITAL ALLOWANCES (SECTIONS 19 AND 19A, ITA)
+
+Capital allowances replace accounting depreciation as the tax deduction for plant and machinery.
+
+Qualifying plant and machinery: assets used in the production of income, not land or buildings.
+
+Types of capital allowances:
+
+1-Year Write-Off (Section 19A(1A)):
+- For qualifying low-value assets costing SGD 5,000 or less per item
+- Maximum total claim: SGD 30,000 per year of assessment
+
+3-Year Write-Off (Section 19A(1)):
+- 33.3% per year for 3 years
+- Most common for IT equipment, office equipment, machinery
+
+Accelerated Capital Allowances (Section 19B):
+- For energy-efficient and environment-friendly equipment
+- 1-year or 3-year write-off available
+
+Writing Down Allowances (Section 19):
+- Over the prescribed working life of the asset (typically 10 years)
+- Less commonly used; requires submission to IRAS
+
+Renovation and Refurbishment (R&R) Allowances:
+- Qualifying R&R expenses deducted over 3 years (one-third each year)
+- Cap: SGD 300,000 per 3-year period
+
+---
+
+STARTUP COSTS
+
+Pre-commencement expenses incurred within 12 months before the start of business:
+- Revenue expenses are deductible in the first year of assessment
+- Example: market research costs, advertising before opening, professional fees for setup
+
+---
+
+CARRY-FORWARD OF LOSSES
+
+Unabsorbed losses may be carried forward indefinitely to offset future taxable income.
+Condition: there must be no substantial change in shareholders (50% shareholding continuity test).
+
+Carry-back of losses:
+- Permitted for up to 1 year of assessment (SGD 100,000 cap)
+- Allows losses to be offset against prior year's assessable income for immediate refund
+
+---
+
+SECTION 14C/14D — R&D EXPENDITURE
+
+Qualifying R&D expenditure may qualify for enhanced deduction:
+- 150% deduction for qualifying R&D expenditure incurred in Singapore
+- Must relate to the trade or business of the company
+- Applies to staff costs and consumables used in R&D
+
+---
+
+PRODUCTIVITY AND INNOVATION CREDIT (PIC) — HISTORICAL
+
+PIC expired after YA 2018. Companies that claimed PIC in prior years should ensure no ongoing clawback.

@@ -32,7 +32,12 @@ async function main() {
 
   // ── Clients ──────────────────────────────────────────────────────────────
 
-  const chroma = new ChromaClient({ host: CHROMA_URL });
+  const chromaUrl = new URL(CHROMA_URL);
+  const chroma = new ChromaClient({
+    host: chromaUrl.hostname,
+    port: chromaUrl.port ? parseInt(chromaUrl.port, 10) : 8000,
+    ssl: chromaUrl.protocol === "https:",
+  });
   const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,0 +1,152 @@
+CPF Contribution Rates and Rules for Singapore Employers
+
+SOURCE: Central Provident Fund Board (CPFB), CPF Act, Ministry of Manpower (MOM)
+
+---
+
+WHO MUST CONTRIBUTE TO CPF
+
+CPF contributions are mandatory for:
+- Singapore citizens employed in Singapore
+- Singapore permanent residents (PRs) employed in Singapore
+
+CPF is NOT required for:
+- Foreign employees (Employment Pass, S Pass, Work Permit holders)
+- Self-employed persons (SEPs contribute to Medisave separately)
+- Employees earning less than SGD 50 per month
+
+---
+
+CPF CONTRIBUTION RATES — EFFECTIVE 1 JANUARY 2026
+
+For Singapore Citizens aged 55 and below:
+- Employer contribution: 17% of ordinary wages (OW)
+- Employee contribution: 20% of ordinary wages (OW)
+- Total CPF contribution: 37% of ordinary wages
+
+For Singapore Citizens aged above 55 to 60:
+- Employer contribution: 15% of OW
+- Employee contribution: 16% of OW
+- Total: 31% of OW
+
+For Singapore Citizens aged above 60 to 65:
+- Employer contribution: 11.5% of OW
+- Employee contribution: 10.5% of OW
+- Total: 22% of OW
+
+For Singapore Citizens aged above 65 to 70:
+- Employer contribution: 9% of OW
+- Employee contribution: 7.5% of OW
+- Total: 16.5% of OW
+
+For Singapore Citizens aged above 70:
+- Employer contribution: 7.5% of OW
+- Employee contribution: 5% of OW
+- Total: 12.5% of OW
+
+Singapore Permanent Residents (SPR) — 1st year of PR status:
+- Employer contribution: 4% of OW
+- Employee contribution: 5% of OW
+(Graduated rates apply for first 2 years; full rates from 3rd year)
+
+---
+
+ORDINARY WAGES (OW) AND ADDITIONAL WAGES (AW)
+
+Ordinary Wages (OW):
+- Wages due or granted in respect of employment for the month
+- Includes basic salary, allowances that are fixed and regularly paid each month
+- Does NOT include overtime pay, bonuses, AWS (13th month), or other non-recurring payments
+
+Ordinary Wage Ceiling:
+- The monthly OW ceiling for CPF contributions is SGD 8,000 from 1 January 2026
+- Previously SGD 6,800 (2024), increasing progressively to SGD 8,000 by 2026
+- CPF is computed on OW up to the ceiling only
+- OW exceeding SGD 8,000 per month is NOT subject to CPF
+
+Additional Wages (AW):
+- Wages paid at irregular intervals — bonuses, AWS, commissions, overtime pay
+- Subject to CPF up to the AW ceiling
+
+Annual Wage Supplement (AWS) / 13th Month Bonus:
+- Treated as additional wages
+- CPF payable on AWS up to the AW ceiling for the year
+
+Additional Wage (AW) Ceiling:
+- AW ceiling = SGD 102,000 - total OW subject to CPF for the year
+- This ensures total CPF-liable wages are capped at SGD 102,000 per year
+
+---
+
+CPF ALLOCATION RATES (for members aged 55 and below)
+
+Total CPF contributions are allocated across three accounts:
+- Ordinary Account (OA): 23% of wages (used for housing, education, investment)
+- Special Account (SA): 6% of wages (used for retirement)
+- Medisave Account (MA): 8% of wages (used for medical expenses)
+
+Note: Exact allocation varies with age; older workers have higher Medisave and Special Account allocations.
+
+---
+
+SKILL DEVELOPMENT LEVY (SDL)
+
+All employers must pay SDL for all employees (including foreign employees).
+Rate: 0.25% of gross monthly remuneration for each employee
+Minimum: SGD 2 per employee per month
+Maximum: SGD 11.25 per employee per month (for salaries above SGD 4,500)
+SDL is used to fund the SkillsFuture Singapore (SSG) programmes.
+
+SDL is payable together with CPF contributions via CPF e-Submit.
+
+---
+
+EMPLOYER CPF PAYMENT
+
+CPF contributions must be paid by the 14th of the following month.
+Payment via CPF e-Submit@web or e-Submit@AXS.
+Late payment attracts late payment interest at 1.5% per month (18% per annum), minimum SGD 5.
+
+---
+
+CPF SUBMISSION
+
+Employers must submit CPF contributions monthly via CPF e-Submit.
+For salary months in which CPF is due, submission and payment must be made together.
+The CPF e-Submit file format is a CSV with specific column requirements:
+- Employee NRIC/FIN, name, amount of OW, amount of AW, employer CPF, employee CPF
+- SDL amount is automatically calculated by CPF Board
+
+---
+
+PAYSLIP REQUIREMENTS (MOM REGULATIONS)
+
+Under the Employment Act, employers must issue itemised payslips to all employees covered by the Act.
+Payslip must include:
+- Employer name and employee name
+- Employee's designation
+- Date of payment and payment period covered
+- Basic salary and allowances paid
+- Any deductions made
+- Overtime pay
+- Net salary paid
+- CPF contribution (employer and employee amounts)
+
+Payslips must be issued together with salary payment or within 3 working days of salary payment.
+Employers must keep payslip records for at least 2 years.
+
+---
+
+NS MAKE-UP PAY
+
+Employers must pay Make-Up Pay to employees on National Service (NS) to top up their NS allowance to their regular civilian pay.
+Employers can claim reimbursement from MINDEF for the Make-Up Pay.
+
+---
+
+MATERNITY / PATERNITY LEAVE
+
+Government-paid maternity leave: 16 weeks for Singapore citizen children; 8 weeks for non-citizen children.
+Government-paid paternity leave: 4 weeks for Singapore citizen children.
+Shared parental leave: available in addition to paternity leave.
+Employers pay during leave period and claim reimbursement from Government for Government-paid portions.

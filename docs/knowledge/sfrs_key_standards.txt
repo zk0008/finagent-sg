@@ -1,0 +1,148 @@
+Key Singapore Financial Reporting Standards (SFRS) for Private Limited Companies
+
+SOURCE: SFRS issued by the Accounting Standards Council (ASC), Singapore
+
+---
+
+SFRS 1-1 — PRESENTATION OF FINANCIAL STATEMENTS
+
+Requires a complete set of financial statements with comparative information.
+Key principles: fair presentation, going concern, accrual basis, consistency of presentation, materiality, aggregation.
+Prohibits offsetting of assets/liabilities or income/expenses unless permitted by another SFRS.
+
+---
+
+SFRS 1-2 — INVENTORIES
+
+Inventories measured at the lower of cost and net realisable value (NRV).
+Cost includes purchase price, conversion costs, and other costs to bring inventories to present location and condition.
+Cost formulas: FIFO (first-in, first-out) or weighted average cost. LIFO is not permitted.
+NRV is the estimated selling price less estimated costs of completion and estimated costs to make the sale.
+Write-down to NRV is recognised as an expense in the period of write-down.
+
+---
+
+SFRS 1-7 — STATEMENT OF CASH FLOWS
+
+Requires disclosure of changes in cash and cash equivalents during the period.
+Operating activities: cash from the principal revenue-producing activities.
+  - Direct method: shows major classes of gross cash receipts and payments
+  - Indirect method: adjusts profit/loss for effects of non-cash transactions, deferrals/accruals, investing/financing items
+Investing activities: acquisition/disposal of long-term assets and other investments.
+Financing activities: activities that change the equity capital and borrowing structure.
+
+---
+
+SFRS 1-8 — ACCOUNTING POLICIES, CHANGES IN ACCOUNTING ESTIMATES AND ERRORS
+
+Accounting policies: specific principles, bases, conventions, rules applied in preparing financial statements.
+Changes in accounting policy: apply retrospectively unless impracticable.
+Changes in accounting estimates: apply prospectively (current and future periods).
+Material prior period errors: correct retrospectively by restating comparative amounts.
+
+---
+
+SFRS 1-10 — EVENTS AFTER THE REPORTING PERIOD
+
+Adjusting events: provide evidence of conditions that existed at the reporting date — adjust financial statements.
+Non-adjusting events: arise after the reporting date — disclose if material.
+Examples of non-adjusting events: declaration of dividends after the reporting date (disclose but do not accrue), major business combinations, natural disasters.
+Dividends declared after the reporting date must not be recognised as a liability at reporting date.
+
+---
+
+SFRS 1-12 — INCOME TAXES
+
+Requires recognition of current and deferred tax.
+Current tax: amount payable/recoverable for the current period based on taxable profit.
+Deferred tax: temporary differences between carrying amount of assets/liabilities and their tax base.
+Deferred tax liability: recognised for all taxable temporary differences (with limited exceptions).
+Deferred tax asset: recognised to the extent it is probable that sufficient future taxable profit will be available.
+Tax rate: use the rate enacted or substantively enacted at the reporting date (Singapore CIT rate: 17%).
+
+---
+
+SFRS 1-16 — PROPERTY, PLANT AND EQUIPMENT (PPE)
+
+Recognition: item of PPE recognised when it is probable that future economic benefits will flow to the entity and the cost can be measured reliably.
+Initial measurement: at cost (purchase price + directly attributable costs to bring asset to intended use).
+Subsequent measurement: cost model (cost less accumulated depreciation and impairment) or revaluation model.
+Cost model is most commonly used by Singapore SMEs.
+
+DEPRECIATION
+Depreciation allocated systematically over the useful life of the asset.
+Depreciable amount: cost less residual value.
+Methods:
+  - Straight-line method: equal annual charge over useful life (most common)
+  - Diminishing (reducing) balance method: constant percentage applied to carrying amount
+  - Units of production method: based on expected use or output
+The depreciation method must reflect the expected pattern of consumption of future economic benefits.
+The method used must be disclosed in accounting policies.
+Depreciation begins when the asset is available for use and ceases when derecognised.
+Useful life and residual value reviewed at each financial year end.
+Change in depreciation method treated as change in accounting estimate (prospective).
+
+Common useful lives for Singapore SMEs:
+  - Buildings: 25–50 years
+  - Plant and machinery: 5–15 years
+  - Office equipment/computers: 3–5 years
+  - Motor vehicles: 5 years
+  - Furniture and fittings: 5–10 years
+
+DERECOGNITION
+Carrying amount derecognised on disposal or when no future economic benefits expected.
+Gain or loss on disposal: difference between net disposal proceeds and carrying amount.
+Gain or loss recognised in profit or loss.
+
+---
+
+SFRS 1-36 — IMPAIRMENT OF ASSETS
+
+At each reporting date, assess whether there is any indication that an asset may be impaired.
+If indication exists, estimate the recoverable amount.
+Recoverable amount: higher of fair value less costs of disposal and value in use.
+Impairment loss: when carrying amount exceeds recoverable amount. Recognised in profit or loss.
+Reversal of impairment: permitted when conditions have changed, except for goodwill.
+
+---
+
+SFRS 1-37 — PROVISIONS, CONTINGENT LIABILITIES AND CONTINGENT ASSETS
+
+Provision: present obligation as a result of a past event; probable outflow of resources; reliable estimate possible.
+Contingent liability: possible obligation (not probable) or present obligation where payment not probable or amount cannot be reliably estimated. Disclosed in notes; not recognised.
+Contingent asset: possible asset from past events; not recognised; disclosed when inflow is probable.
+
+---
+
+SFRS 1-38 — INTANGIBLE ASSETS
+
+Recognised when identifiable, controlled by entity, and expected to generate future economic benefits.
+Examples: computer software, patents, trademarks, customer lists, franchises.
+Initial measurement at cost.
+Subsequent: cost model or revaluation model (revaluation only if active market exists).
+Useful life: finite (amortise over useful life) or indefinite (no amortisation; test annually for impairment).
+Most intangible assets in Singapore SMEs have finite useful lives.
+
+---
+
+SFRS 15 — REVENUE FROM CONTRACTS WITH CUSTOMERS
+
+Five-step model for revenue recognition:
+1. Identify the contract with a customer
+2. Identify the performance obligations
+3. Determine the transaction price
+4. Allocate the transaction price to performance obligations
+5. Recognise revenue when (or as) performance obligations are satisfied
+
+Revenue recognised at a point in time (e.g. goods delivered) or over time (e.g. services performed).
+Variable consideration (discounts, rebates, refunds) included in transaction price to the extent it is highly probable no significant revenue reversal will occur.
+
+---
+
+SFRS 16 — LEASES
+
+Lessees must recognise right-of-use (ROU) asset and lease liability for most leases.
+Practical expedients available: short-term leases (12 months or less) and low-value assets may be expensed.
+Finance cost recognised on lease liability using effective interest method.
+ROU asset depreciated over shorter of asset useful life or lease term.
+Impacts balance sheet (higher assets and liabilities) and P&L (depreciation + interest instead of rent expense).
