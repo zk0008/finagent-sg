@@ -45,6 +45,13 @@ docker-compose.env
 # Fine-tuning training data — may contain client-sensitive content
 docs/training/training_data.jsonl
 
+# Personal reference documents
+finagent-sg-personal-reference.md
+
+# Custom skills — proprietary
+skills/sg-accounting-standards/SKILL.md
+skills/sg-payroll-cpf/SKILL.md
+
 # vercel
 .vercel
 
