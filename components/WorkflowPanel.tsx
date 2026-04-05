@@ -32,10 +32,11 @@ import { Input } from "@/components/ui/input";
 import { FSPreview } from "@/components/FSPreview";
 import { ModelWorkflow } from "@/components/ModelWorkflow";
 import { PayrollWorkflow } from "@/components/PayrollWorkflow";
+import { TaxWorkflow } from "@/components/TaxWorkflow";
 import { generateSchemaName } from "@/lib/schemaUtils";
 
-// The three task types the system supports (Phases 2, 3, 4)
-type Task = "financial_statements" | "financial_model" | "payroll";
+// The four task types the system supports (Phases 2, 3, 4, 7)
+type Task = "financial_statements" | "financial_model" | "payroll" | "corporate_tax";
 
 // Progress step statuses
 type StepStatus = "pending" | "in_progress" | "complete" | "error";
@@ -383,6 +384,10 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
               <RadioGroupItem value="payroll" id="task-payroll" />
               <Label htmlFor="task-payroll">Process Payroll</Label>
             </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="corporate_tax" id="task-tax" />
+              <Label htmlFor="task-tax">Corporate Tax Computation</Label>
+            </div>
           </RadioGroup>
         </CardContent>
       </Card>
@@ -441,6 +446,18 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
           companyName={companyName.trim()}
           entityId={entityId}
           uen={uen.trim() || "202500001A"}
+        />
+      )}
+
+      {/* ── Tax Workflow (corporate_tax task) ── */}
+      {selectedTask === "corporate_tax" && (
+        <TaxWorkflow
+          schemaName={generateSchemaName(companyName.trim() || "company")}
+          companyName={companyName.trim()}
+          entityId={entityId}
+          fiscalYearId={fiscalYearId}
+          uen={uen.trim() || "202500001A"}
+          fyeDate={fyeDate}
         />
       )}
 

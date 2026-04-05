@@ -181,6 +181,30 @@ CREATE TABLE IF NOT EXISTS client_schema.corrections (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- tax_computations: One row per corporate tax computation run.
+-- Each computation is saved independently; no row is ever overwritten.
+-- tax_adjustments stores the full JSON array of add-backs and deductions.
+-- All monetary amounts are stored as NUMERIC for precision; bignumber.js strings are
+-- converted at the API boundary before insert.
+-- exemption_scheme: 'new_startup' | 'partial'
+-- form_type: 'C-S_Lite' | 'C-S' | 'C'
+CREATE TABLE IF NOT EXISTS client_schema.tax_computations (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_id            UUID NOT NULL REFERENCES client_schema.entities(id) ON DELETE CASCADE,
+  fiscal_year_id       UUID REFERENCES client_schema.fiscal_years(id) ON DELETE SET NULL,
+  year_of_assessment   INTEGER NOT NULL,                      -- e.g. 2026
+  form_type            TEXT NOT NULL,                         -- 'C-S_Lite' | 'C-S' | 'C'
+  accounting_profit    NUMERIC(18, 2) NOT NULL,               -- Net profit per financial statements
+  tax_adjustments      JSONB,                                  -- Array of {description, amount, type}
+  chargeable_income    NUMERIC(18, 2) NOT NULL,               -- After add-backs and deductions
+  exemption_scheme     TEXT NOT NULL,                         -- 'new_startup' | 'partial'
+  tax_before_rebate    NUMERIC(18, 2) NOT NULL,               -- Gross tax at 17%
+  cit_rebate           NUMERIC(18, 2) NOT NULL DEFAULT 0,     -- YA 2026 CIT Rebate amount
+  cit_rebate_cash_grant NUMERIC(18, 2) NOT NULL DEFAULT 0,   -- YA 2026 CIT Rebate Cash Grant
+  tax_payable          NUMERIC(18, 2) NOT NULL,               -- Net tax payable (minimum 0)
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ── Test schema: techsoft_pte_ltd ─────────────────────────────────────────────
 -- Run the following SQL in Supabase SQL editor to create the corrections table
 -- in the existing techsoft_pte_ltd test schema (Phase 5):
@@ -194,6 +218,31 @@ CREATE TABLE IF NOT EXISTS client_schema.corrections (
 -- );
 --
 -- GRANT ALL ON techsoft_pte_ltd.corrections TO anon, authenticated, service_role;
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA techsoft_pte_ltd
+--   GRANT ALL ON TABLES TO anon, authenticated, service_role;
+
+-- ── Test schema: techsoft_pte_ltd — Phase 7 tax_computations table ────────────
+-- Run the following SQL in Supabase SQL editor to create the tax_computations table
+-- in the existing techsoft_pte_ltd test schema:
+--
+-- CREATE TABLE IF NOT EXISTS techsoft_pte_ltd.tax_computations (
+--   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   entity_id             UUID NOT NULL,
+--   fiscal_year_id        UUID,
+--   year_of_assessment    INTEGER NOT NULL,
+--   form_type             TEXT NOT NULL,
+--   accounting_profit     NUMERIC(18, 2) NOT NULL,
+--   tax_adjustments       JSONB,
+--   chargeable_income     NUMERIC(18, 2) NOT NULL,
+--   exemption_scheme      TEXT NOT NULL,
+--   tax_before_rebate     NUMERIC(18, 2) NOT NULL,
+--   cit_rebate            NUMERIC(18, 2) NOT NULL DEFAULT 0,
+--   cit_rebate_cash_grant NUMERIC(18, 2) NOT NULL DEFAULT 0,
+--   tax_payable           NUMERIC(18, 2) NOT NULL,
+--   created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+-- );
+--
+-- GRANT ALL ON techsoft_pte_ltd.tax_computations TO anon, authenticated, service_role;
 -- ALTER DEFAULT PRIVILEGES IN SCHEMA techsoft_pte_ltd
 --   GRANT ALL ON TABLES TO anon, authenticated, service_role;
 

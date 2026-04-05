@@ -330,3 +330,56 @@ export const JournalEntrySchema = z.object({
   amount: z.string(),                 // Absolute amount (string for bignumber.js precision)
 });
 export type JournalEntry = z.infer<typeof JournalEntrySchema>;
+
+// ── Phase 7 schemas ───────────────────────────────────────────────────────────
+
+// TaxAdjustment — one line item in the tax computation schedule.
+// amount: positive string value (engine takes abs() and uses type to determine direction).
+// type: "add_back" adds to accounting profit; "deduct" reduces it.
+export const TaxAdjustmentSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  amount: z.string(),   // positive = add back, negative = deduct (engine uses abs() + type)
+  type: z.enum(["add_back", "deduct"]),
+});
+export type TaxAdjustment = z.infer<typeof TaxAdjustmentSchema>;
+
+// TaxComputationInput — all inputs required to compute corporate income tax.
+// accounting_profit and revenue are strings for bignumber.js precision.
+// is_new_startup: true if this is one of the company's first 3 Years of Assessment.
+// is_local_employee_cpf: true if the company made CPF contributions to a local employee in 2025
+//   (required for the YA 2026 CIT Rebate Cash Grant of $1,500).
+export const TaxComputationInputSchema = z.object({
+  entity_id:              z.string().uuid(),
+  fiscal_year_id:         z.string().uuid(),
+  accounting_profit:      z.string(),   // Net profit per financial statements (string for bignumber.js)
+  revenue:                z.string(),   // Annual revenue — determines filing form type
+  is_new_startup:         z.boolean(),  // True = new start-up exemption; false = partial exemption
+  is_local_employee_cpf:  z.boolean(),  // True = eligible for CIT Rebate Cash Grant
+  tax_adjustments:        z.array(TaxAdjustmentSchema),
+});
+export type TaxComputationInput = z.infer<typeof TaxComputationInputSchema>;
+
+// TaxComputationResult — full output of the corporate tax computation engine.
+// All monetary amounts are strings (bignumber.js output, rounded to 2 decimal places).
+// eci_filing_required: false only if revenue ≤ $5M AND chargeable income is nil.
+// eci_deadline: "DD Mon YYYY" or a descriptive fallback if FYE date is unavailable.
+// form_filing_deadline: always "30 Nov YYYY" where YYYY is the Year of Assessment.
+export const TaxComputationResultSchema = z.object({
+  year_of_assessment:     z.number().int(),
+  form_type:              z.enum(["C-S_Lite", "C-S", "C"]),
+  accounting_profit:      z.string(),
+  total_add_backs:        z.string(),
+  total_deductions:       z.string(),
+  chargeable_income:      z.string(),
+  exemption_scheme:       z.enum(["new_startup", "partial"]),
+  exempt_amount:          z.string(),
+  taxable_income:         z.string(),
+  gross_tax:              z.string(),
+  cit_rebate:             z.string(),
+  cit_rebate_cash_grant:  z.string(),
+  tax_payable:            z.string(),
+  eci_filing_required:    z.boolean(),
+  eci_deadline:           z.string(),
+  form_filing_deadline:   z.string(),
+});
+export type TaxComputationResult = z.infer<typeof TaxComputationResultSchema>;

@@ -23,6 +23,7 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 | Phase 4 | Payroll & CPF Agent | **Complete** |
 | Phase 5 | Continuous Improvement — fine-tuning, Langfuse | **Complete** |
 | Phase 6 | Polish & Deploy | **Complete** |
+| Phase 7 | Corporate Tax Computation | **Complete** |
 
 **All phases complete. Project is production-ready. GitHub push deferred — user to push after testing.**
 
@@ -44,6 +45,12 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 
 ---
 
+## MCP
+
+- **Context7 MCP is configured** — Claude Code will automatically fetch up-to-date library docs for Next.js, Vercel AI SDK, Supabase, and other dependencies when needed.
+
+---
+
 ## Key Conventions
 
 - **Client schema naming:** company name slug — e.g. `"ABC Pte Ltd"` → `"abc_pte_ltd"`. Use `generateSchemaName()` from `lib/schemaUtils.ts`.
@@ -62,8 +69,9 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 
 - No new Langfuse instrumentation until explicitly requested
 - No fine-tuning trigger until explicitly requested
-- No GST, corporate tax, or consolidation (future features)
+- No GST or consolidation (future features — Phase 7 covers corporate tax)
 - **Do not modify Phase 0 or Phase 1 files unless strictly necessary — ask the user first**
+- Phase 7 files: no GST computation, no group relief, no capital allowance auto-calculation, no instalment plan — ask user first
 
 ---
 
@@ -86,13 +94,16 @@ finagent-sg/
 │       │   ├── save/route.ts                  # Phase 3: save financial model to DB
 │       │   ├── export-excel/route.ts          # Phase 3: export 8-sheet Excel workbook
 │       │   └── upload-actuals/route.ts        # Phase 3: parse actuals + run BVA comparison
-│       └── payroll/
-│           ├── run/route.ts                   # Phase 4: POST run payroll + PATCH finalise
-│           ├── payslip/route.ts               # Phase 4: POST generate individual payslip PDF
-│           ├── export-cpf/route.ts            # Phase 4: POST CPF e-Submit CSV download
-│           ├── journal/route.ts               # Phase 4: POST payroll journal entries JSON
-│           ├── employees/route.ts             # Phase 4: GET list + POST create employee
-│           └── employees/[id]/route.ts        # Phase 4: PUT update + DELETE employee
+│       ├── payroll/
+│       │   ├── run/route.ts                   # Phase 4: POST run payroll + PATCH finalise
+│       │   ├── payslip/route.ts               # Phase 4: POST generate individual payslip PDF
+│       │   ├── export-cpf/route.ts            # Phase 4: POST CPF e-Submit CSV download
+│       │   ├── journal/route.ts               # Phase 4: POST payroll journal entries JSON
+│       │   ├── employees/route.ts             # Phase 4: GET list + POST create employee
+│       │   └── employees/[id]/route.ts        # Phase 4: PUT update + DELETE employee
+│       └── tax/
+│           ├── compute/route.ts               # Phase 7: POST corporate tax computation
+│           └── pdf/route.ts                   # Phase 7: POST tax computation schedule PDF
 ├── components/
 │   ├── WorkflowPanel.tsx           # Phase 2+3+4: task selector, FS + Model + Payroll workflows
 │   ├── FSPreview.tsx               # Phase 3: in-browser FS preview modal
@@ -100,6 +111,7 @@ finagent-sg/
 │   ├── ProjectionTable.tsx         # Phase 3: P&L / Balance Sheet projection table
 │   ├── VarianceTable.tsx           # Phase 3: Budget-vs-actual variance table
 │   ├── PayrollWorkflow.tsx         # Phase 4: 3-step payroll UI (employees → run → download)
+│   ├── TaxWorkflow.tsx             # Phase 7: 3-step corporate tax UI (setup → adjustments → results)
 │   ├── ChatbotPanel.tsx            # Phase 1: training & feedback chatbot
 │   └── BottomNav.tsx
 ├── lib/
@@ -126,6 +138,8 @@ finagent-sg/
 │   ├── payslipGenerator.ts         # Phase 4: pdfkit MOM-compliant payslip PDF
 │   ├── cpfSubmissionExport.ts      # Phase 4: CPF e-Submit CSV generator
 │   ├── payrollJournal.ts           # Phase 4: double-entry payroll journal entries
+│   ├── taxEngine.ts                # Phase 7: pure-arithmetic corporate tax engine
+│   ├── taxPdfGenerator.ts          # Phase 7: pdfkit tax computation schedule PDF
 │   └── utils.ts
 ├── trigger/
 │   └── fsGenerationJob.ts          # Phase 2: Trigger.dev background job definition
@@ -138,7 +152,8 @@ finagent-sg/
 │   └── migrateChromaToPgvector.ts  # Phase 6: one-time ChromaDB → pgvector migration
 ├── skills/
 │   ├── sg-accounting-standards/SKILL.md  # Phase 2: SG accounting rules
-│   └── sg-payroll-cpf/SKILL.md           # Phase 4: CPF rates + payroll rules (1 Jan 2026)
+│   ├── sg-payroll-cpf/SKILL.md           # Phase 4: CPF rates + payroll rules (1 Jan 2026)
+│   └── sg-corporate-tax/SKILL.md         # Phase 7: SG corporate tax rules YA 2026 (gitignored)
 ├── .agents/skills/                 # Vercel skills (installed via npx skills add)
 ├── supabase/schema.sql
 ├── docs/

@@ -565,3 +565,58 @@ Note: The exact skill names in the blueprint (`frontend-design`, `nextjs-perform
 - Run `scripts/migrateChromaToPgvector.ts` before deploying to production
 - Sign up at cloud.langfuse.com and add LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST=https://cloud.langfuse.com to Vercel env vars
 - Add all required env vars to Vercel dashboard before running `vercel --prod`
+
+---
+
+## Phase 7 — Corporate Tax Computation
+**Status:** Complete
+**Date completed:** 2026-04-05
+
+### Skill Created
+| File | Purpose |
+|------|---------|
+| `skills/sg-corporate-tax/SKILL.md` | SG corporate tax rules — CIT rate, YA 2026 rebate, exemption tiers, form types, ECI, deadlines |
+
+### Files Built
+| File | Purpose |
+|------|---------|
+| `lib/taxEngine.ts` | Pure-arithmetic corporate tax engine — `computeTax()`, `applyTaxExemption()`, `computeCITRebate()`, `determineFormType()` |
+| `lib/taxPdfGenerator.ts` | pdfkit tax computation schedule PDF — `generateTaxComputationPDF()` |
+| `app/api/tax/compute/route.ts` | POST `/api/tax/compute` — runs engine, saves to DB, returns result |
+| `app/api/tax/pdf/route.ts` | POST `/api/tax/pdf` — generates and downloads tax computation PDF |
+| `components/TaxWorkflow.tsx` | 3-step corporate tax UI — setup → adjustments → results |
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `lib/schemas.ts` | Added `TaxAdjustmentSchema`, `TaxComputationInputSchema`, `TaxComputationResultSchema` (Phase 7 section at end) |
+| `supabase/schema.sql` | Added `tax_computations` table to per-client schema template + techsoft_pte_ltd test SQL comment block |
+| `components/WorkflowPanel.tsx` | Added `corporate_tax` to `Task` type; imported `TaxWorkflow`; added radio button; mounted `TaxWorkflow` block |
+| `.gitignore` | Added `skills/sg-corporate-tax/SKILL.md` to custom skills section |
+| `CLAUDE.md` | Phase 7 → Complete; project structure updated; What NOT to do updated |
+
+### Decisions
+| Decision | Reason |
+|----------|--------|
+| No AI in tax engine | Corporate tax is deterministic law — AI would introduce compliance risk and rounding errors |
+| bignumber.js throughout | Consistent with Phases 2–4; avoids float drift on cent-level tax amounts |
+| CIT Rebate cash grant takes priority over rebate in cap calculation | Cash grant is a flat payment; rebate is reduced first if total benefit would exceed $30,000 cap |
+| `fiscal_year_end` injected at API boundary (not in Zod schema) | Engine needs FYE to compute YA and ECI deadline; Zod schema stays clean with only computation inputs |
+| New Start-Up vs Partial as a boolean flag (`is_new_startup`) | Simple toggle; avoids more complex eligibility checking that would require company incorporation date |
+| Tax adjustments pre-populated with 3 common SG items | UX: most SG companies have private car expenses and dividends; reduces setup time |
+| `latest-fs` route returns metadata only (not structured_data) | Avoids transmitting large JSONB objects for a setup hint; user enters profit/revenue manually |
+| `TaxWorkflow` fetches FS metadata on mount for display hint | Shows user if FS is available; gracefully falls back to manual entry |
+| PDF uses same layout constants as `pdfGenerator.ts` | Consistent document appearance; reuses established PDF design |
+| `tax_computations` table stores amounts as `NUMERIC(18,2)` | Matches bignumber.js 2 d.p. output; avoids TEXT-to-float drift in DB queries |
+
+### Deviations from Blueprint
+| Deviation | Reason |
+|-----------|--------|
+| `TaxWorkflow` does not auto-populate accounting_profit and revenue from FS structured_data | `/api/model/latest-fs` route returns metadata only (not full structured_data); fetching and parsing the full FS output would require a new API endpoint. User enters values manually with a hint that FS data is available. Deferred to ask user if auto-populate is desired. |
+
+### Open Items (deferred)
+- Capital allowance auto-calculation (Section 19/19A) — ask user before building
+- GST computation — ask user before building
+- Group relief — ask user before building
+- Auto-populate accounting_profit/revenue from saved FS structured_data — ask user first
+- Instalment payment plan computation — ask user before building
