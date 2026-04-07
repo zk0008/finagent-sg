@@ -145,6 +145,7 @@ export const FSGeneratorInputSchema = z.object({
   fiscal_year: FiscalYearSchema,
   classified_accounts: z.array(ClassifiedAccountSchema),
   exemption_result: ExemptionResultSchema,
+  corrections: z.array(z.string()).optional(), // pending user corrections from chatbot
 });
 export type FSGeneratorInput = z.infer<typeof FSGeneratorInputSchema>;
 

@@ -67,7 +67,7 @@ const FS_MODEL = MODEL_ROUTES.fs_generation;
 export async function generateFinancialStatements(
   input: FSGeneratorInput
 ): Promise<FSOutput> {
-  const { entity, fiscal_year, classified_accounts, exemption_result } = input;
+  const { entity, fiscal_year, classified_accounts, exemption_result, corrections } = input;
 
   // ── Langfuse: open parent trace for the full FS pipeline ──────────────────
   // All 5 AI steps are child generations of this single trace so you can see
@@ -188,6 +188,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
     balanceSheet,
     profitAndLoss,
     fiscalYear: fiscal_year,
+    corrections: corrections ?? [],
   });
 
   // ── Step 6: XBRL Tagging (deterministic, no AI) ───────────────────────────
@@ -501,6 +502,7 @@ async function generateNotes(params: {
   balanceSheet: Record<string, unknown>;
   profitAndLoss: Record<string, unknown>;
   fiscalYear: import("./schemas").FiscalYear;
+  corrections: string[];
 }): Promise<Array<{ title: string; content: string }>> {
   // RAG retrieves required SFRS disclosure requirements from the knowledge base.
   // This ensures the notes include all mandatory items (e.g. accounting policies,
@@ -525,10 +527,15 @@ Each note should have a clear title and detailed content appropriate for a Singa
 SFRS Knowledge Base Content:
 ${ragContext}`;
 
+  const correctionsBlock =
+    params.corrections.length > 0
+      ? `\nUSER CORRECTIONS (must be applied — these override defaults):\n${params.corrections.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n`
+      : "";
+
   const userPrompt = `${params.entityContext}
 Audit Exempt: ${params.exemptionResult.is_audit_exempt}
 EPC Status: ${params.exemptionResult.is_epc}
-
+${correctionsBlock}
 Prepare comprehensive Notes to Financial Statements including:
 1. General information (company name, UEN, nature of business, FYE)
 2. Summary of significant accounting policies

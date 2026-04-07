@@ -39,6 +39,7 @@ import { generateFinancialStatements } from "@/lib/fsGenerator";
 import { saveGeneratedFS } from "@/lib/outputStorage";
 import { generateSchemaName } from "@/lib/schemaUtils";
 import { flushLangfuse, getLangfuse } from "@/lib/langfuse";
+import { supabase } from "@/lib/supabaseClient";
 import {
   EntitySchema,
   FiscalYearSchema,
@@ -200,7 +201,26 @@ export async function POST(req: NextRequest): Promise<Response> {
           timestamp: new Date().toISOString(),
         });
 
-        // ── Step 5: Generate financial statements ──────────────────────
+        // ── Step 5: Fetch pending corrections ─────────────────────────────
+        // Load corrections the user submitted via the chatbot so they are
+        // applied directly in the Notes generation step.
+        const schemaName = generateSchemaName(entity.name);
+        let corrections: string[] = [];
+        try {
+          const { data } = await supabase
+            .schema(schemaName)
+            .from("corrections")
+            .select("message")
+            .eq("status", "pending")
+            .order("created_at", { ascending: true });
+          if (data && data.length > 0) {
+            corrections = data.map((r: { message: string }) => r.message);
+          }
+        } catch {
+          // Non-fatal — proceed without corrections if the query fails
+        }
+
+        // ── Step 6: Generate financial statements ──────────────────────
         send({
           step: "generate_fs",
           status: "in_progress",
@@ -213,6 +233,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           fiscal_year: fiscalYear,
           classified_accounts: classifiedAccounts,
           exemption_result: exemptionResult,
+          corrections,
         });
 
         send({
@@ -230,7 +251,6 @@ export async function POST(req: NextRequest): Promise<Response> {
           timestamp: new Date().toISOString(),
         });
 
-        const schemaName = generateSchemaName(entity.name);
         await saveGeneratedFS({
           schemaName,
           fiscalYearId: body.fiscal_year_id,
