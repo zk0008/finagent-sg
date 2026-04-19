@@ -12,7 +12,7 @@ All improvements below are additive — no core workflow logic from Phases 0–7
 | ID | Improvement | Status | Claude Code Prompt |
 |----|-------------|--------|-------------------|
 | A1 | CSV upload support | [DONE] Complete | Prompt A1 |
-| A3 | Concurrent component generation | [ ] Not started | Prompt A3 |
+| A3 | Concurrent component generation | [DONE] Complete | Prompt A3 |
 | D  | Mobile-responsive UI | [ ] Not started | Prompt D |
 | C  | Scheduled document ingestion | [ ] Not started | Prompt C |
 | B  | Receipt segregation | [ ] Not started | Prompts B1–B3 |
@@ -76,12 +76,12 @@ The five FS components (income statement, balance sheet, cash flow statement, no
 - SSE progress streaming logic
 
 ### Completion checklist
-- [ ] All five components fire concurrently via `Promise.all()`
-- [ ] Individual component logic unchanged
-- [ ] Errors from any single component surface correctly
-- [ ] TypeScript compiles clean
+- [x] All five components fire concurrently via `Promise.all()`
+- [x] Individual component logic unchanged
+- [x] Errors from any single component surface correctly
+- [x] TypeScript compiles clean
 - [ ] Tested end-to-end with sample trial balance
-- [ ] PHASES_V2.md status updated to [DONE]
+- [x] PHASES_V2.md status updated to [DONE]
 
 ---
 

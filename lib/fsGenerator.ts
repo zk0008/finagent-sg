@@ -53,12 +53,12 @@ const FS_MODEL = MODEL_ROUTES.fs_generation;
 /**
  * Generates the full financial statement package for a Singapore entity.
  *
- * Runs five AI steps plus one deterministic XBRL step, in order:
- * 1. Balance Sheet
- * 2. P&L Statement
- * 3. Cash Flow Statement
- * 4. Statement of Changes in Equity
- * 5. Notes to Financial Statements (RAG-assisted)
+ * Runs five AI steps plus one deterministic XBRL step concurrently:
+ * 1. Balance Sheet          ─┐
+ * 2. P&L Statement          ─┼─ fired simultaneously
+ * 3. Cash Flow Statement    ─┤
+ * 4. Statement of Equity    ─┘
+ * 5. Notes (RAG-assisted)   — chains off BS + P&L; starts when both settle
  * 6. XBRL Tagging (deterministic, no AI)
  *
  * @param input - FSGeneratorInput with entity, fiscal year, accounts, and exemption status
@@ -124,10 +124,20 @@ Currency: SGD
 Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" : "No"}
   `.trim();
 
-  // ── Step 1: Balance Sheet ─────────────────────────────────────────────────
-  // AI structures the layout and labels; Calculation Engine provides all figures.
-  // The AI is given pre-computed totals so it only needs to decide presentation.
-  const balanceSheet = await generateBalanceSheet({
+  // ── Steps 1–5: Concurrent component generation (A3) ──────────────────────
+  //
+  // Steps 1–4 (Balance Sheet, P&L, Cash Flow, Equity) are fully independent —
+  // each reads only from the pre-computed figures and classified_accounts above.
+  // They are fired simultaneously.
+  //
+  // Step 5 (Notes) receives balanceSheet and profitAndLoss as context, so it
+  // chains off those two promises and starts as soon as the slower of the two
+  // settles. It is still covered by the outer Promise.all so any rejection
+  // surfaces immediately and is not swallowed.
+  //
+  // Wall-clock time falls from sum(t1..t5) to max(t1, t2, max(t1,t2)+t5, t3, t4).
+
+  const bsPromise = generateBalanceSheet({
     trace,
     entityContext,
     currentAssets,
@@ -142,9 +152,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
     accounts: classified_accounts,
   });
 
-  // ── Step 2: Profit & Loss Statement ──────────────────────────────────────
-  // AI structures the P&L layout; Calculation Engine provided revenue, expenses, net profit.
-  const profitAndLoss = await generateProfitAndLoss({
+  const plPromise = generateProfitAndLoss({
     trace,
     entityContext,
     revenue,
@@ -154,10 +162,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
     fiscalYear: fiscal_year,
   });
 
-  // ── Step 3: Cash Flow Statement (indirect method) ─────────────────────────
-  // AI applies the indirect method structure; Calculation Engine provides the figures.
-  // Indirect method: starts from net profit, adjusts for non-cash items and working capital.
-  const cashFlow = await generateCashFlow({
+  const cfPromise = generateCashFlow({
     trace,
     entityContext,
     netProfit,
@@ -165,9 +170,7 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
     fiscalYear: fiscal_year,
   });
 
-  // ── Step 4: Statement of Changes in Equity ────────────────────────────────
-  // AI structures the movement table; Calculation Engine provides opening/closing balances.
-  const equityStatement = await generateEquityStatement({
+  const eqPromise = generateEquityStatement({
     trace,
     entityContext,
     openingRetainedEarnings,
@@ -177,19 +180,22 @@ Audit Exempt: ${exemption_result.is_audit_exempt ? "Yes (Small Company + EPC)" :
     fiscalYear: fiscal_year,
   });
 
-  // ── Step 5: Notes to Financial Statements ─────────────────────────────────
-  // RAG retrieves required SFRS disclosures before the AI drafts the notes.
-  // This ensures the notes include all mandatory disclosures per Singapore standards.
-  const notes = await generateNotes({
-    trace,
-    entityContext,
-    entity,
-    exemptionResult: exemption_result,
-    balanceSheet,
-    profitAndLoss,
-    fiscalYear: fiscal_year,
-    corrections: corrections ?? [],
-  });
+  // Notes chains off BS + P&L: starts once both are settled, no signature change.
+  const notesPromise = Promise.all([bsPromise, plPromise]).then(([bs, pl]) =>
+    generateNotes({
+      trace,
+      entityContext,
+      entity,
+      exemptionResult: exemption_result,
+      balanceSheet: bs,
+      profitAndLoss: pl,
+      fiscalYear: fiscal_year,
+      corrections: corrections ?? [],
+    })
+  );
+
+  const [balanceSheet, profitAndLoss, cashFlow, equityStatement, notes] =
+    await Promise.all([bsPromise, plPromise, cfPromise, eqPromise, notesPromise]);
 
   // ── Step 6: XBRL Tagging (deterministic, no AI) ───────────────────────────
   // Maps each line item key to the corresponding ACRA BizFile+ taxonomy code.
