@@ -359,7 +359,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-6">
 
       {/* ── 1. Task Selector ── */}
       <Card>
@@ -489,7 +489,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
                     <p className="text-xs text-muted-foreground/70 mt-1">Supported: .xlsx .xls .csv</p>
                   </div>
                 )}
-                <Button variant="outline" size="sm" className="mt-3" type="button">
+                <Button variant="outline" size="sm" className="mt-3 min-h-[44px]" type="button">
                   Browse Files
                 </Button>
               </div>
@@ -574,7 +574,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-h-[44px]">
                 <input
                   id="corp-shareholders"
                   type="checkbox"

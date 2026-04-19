@@ -83,7 +83,7 @@ export default function ClientsPage() {
         <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
       </header>
 
-      <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold">Clients</h2>
@@ -126,7 +126,7 @@ export default function ClientsPage() {
             No clients yet. Click &ldquo;Add New Client&rdquo; to get started.
           </p>
         ) : (
-          <Table>
+          <div className="overflow-x-auto"><Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Company Name</TableHead>
@@ -161,7 +161,7 @@ export default function ClientsPage() {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
+          </Table></div>
         )}
       </main>
 

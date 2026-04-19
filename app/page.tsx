@@ -51,14 +51,14 @@ export default function HomePage() {
       </header>
 
       {/* Main two-panel area */}
-      <main className="flex flex-1 overflow-hidden">
+      <main className="flex flex-1 overflow-hidden flex-col md:flex-row">
         {/* Left: Workflow panel */}
-        <div className="w-1/2 border-r overflow-y-auto">
+        <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r overflow-y-auto">
           <WorkflowPanel onSchemaNameChange={setSchemaName} />
         </div>
 
         {/* Right: Chatbot panel */}
-        <div className="w-1/2 overflow-y-auto">
+        <div className="w-full md:w-1/2 overflow-y-auto min-h-64 md:min-h-0">
           <ChatbotPanel schemaName={schemaName} />
         </div>
       </main>

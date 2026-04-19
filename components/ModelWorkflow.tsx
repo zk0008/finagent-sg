@@ -835,9 +835,9 @@ export function ModelWorkflow({
               Upload an actual trial balance to compare against any projected year.
             </p>
 
-            <div className="flex gap-3 items-end">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
               {/* Year selector */}
-              <div className="space-y-1 w-36">
+              <div className="space-y-1 w-full sm:w-36">
                 <Label className="text-xs text-muted-foreground">Compare against</Label>
                 <Select
                   value={String(bvaYear)}

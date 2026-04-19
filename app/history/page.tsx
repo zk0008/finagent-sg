@@ -141,7 +141,7 @@ export default function HistoryPage() {
         <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
       </header>
 
-      <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full">
         <div className="mb-6">
           <h2 className="text-xl font-semibold">History</h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -155,7 +155,7 @@ export default function HistoryPage() {
             <select
               value={selectedSchema}
               onChange={(e) => setSelectedSchema(e.target.value)}
-              className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm w-72"
+              className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm w-full sm:w-72"
             >
               {clients.map((c) => (
                 <option key={c.id} value={c.schema_name}>
@@ -171,12 +171,14 @@ export default function HistoryPage() {
         )}
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabType)}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="fs">Financial Statements</TabsTrigger>
-            <TabsTrigger value="model">Financial Models</TabsTrigger>
-            <TabsTrigger value="payroll">Payroll Runs</TabsTrigger>
-            <TabsTrigger value="tax">Tax Computations</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto mb-4">
+            <TabsList className="min-w-max">
+              <TabsTrigger value="fs">Financial Statements</TabsTrigger>
+              <TabsTrigger value="model">Financial Models</TabsTrigger>
+              <TabsTrigger value="payroll">Payroll Runs</TabsTrigger>
+              <TabsTrigger value="tax">Tax Computations</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ── Financial Statements ── */}
           <TabsContent value="fs">
@@ -185,7 +187,7 @@ export default function HistoryPage() {
             ) : fsItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">No financial statements generated yet.</p>
             ) : (
-              <Table>
+              <div className="overflow-x-auto"><Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date Generated</TableHead>
@@ -218,7 +220,7 @@ export default function HistoryPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             )}
           </TabsContent>
 
@@ -229,7 +231,7 @@ export default function HistoryPage() {
             ) : modelItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">No financial models saved yet.</p>
             ) : (
-              <Table>
+              <div className="overflow-x-auto"><Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date Generated</TableHead>
@@ -262,7 +264,7 @@ export default function HistoryPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             )}
           </TabsContent>
 
@@ -273,7 +275,7 @@ export default function HistoryPage() {
             ) : payrollItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">No payroll runs yet.</p>
             ) : (
-              <Table>
+              <div className="overflow-x-auto"><Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Period</TableHead>
@@ -292,7 +294,7 @@ export default function HistoryPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             )}
           </TabsContent>
           {/* ── Tax Computations ── */}
@@ -302,7 +304,7 @@ export default function HistoryPage() {
             ) : taxItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">No tax computations saved yet.</p>
             ) : (
-              <Table>
+              <div className="overflow-x-auto"><Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date Generated</TableHead>
@@ -333,7 +335,7 @@ export default function HistoryPage() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+              </Table></div>
             )}
           </TabsContent>
 

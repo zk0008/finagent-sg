@@ -187,7 +187,7 @@ export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-full p-6">
+    <div className="flex flex-col h-full p-3 md:p-6">
 
       {/* Panel header */}
       <div className="mb-4">
@@ -258,13 +258,13 @@ export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="resize-none min-h-24"
+            className="resize-none min-h-[60px]"
             disabled={isSending}
           />
           <Button
             onClick={handleSend}
             disabled={isSending || !inputValue.trim()}
-            className="self-end"
+            className="self-end min-h-[44px]"
           >
             {isSending ? "…" : "Send"}
           </Button>

@@ -490,7 +490,8 @@ export function TaxWorkflow({
             </p>
 
             {/* Adjustments table */}
-            <div className="space-y-2">
+            <div className="overflow-x-auto">
+            <div className="space-y-2 min-w-xl">
               {/* Header row */}
               <div className="grid grid-cols-[1fr_100px_90px_36px] gap-2 items-center">
                 <span className="text-xs font-medium text-muted-foreground">Description</span>
@@ -534,6 +535,7 @@ export function TaxWorkflow({
                 </div>
               ))}
             </div>
+            </div>{/* end overflow-x-auto */}
 
             <Button variant="outline" size="sm" className="w-full text-xs" onClick={handleAddRow}>
               + Add Row

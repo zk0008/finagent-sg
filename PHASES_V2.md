@@ -13,7 +13,7 @@ All improvements below are additive — no core workflow logic from Phases 0–7
 |----|-------------|--------|-------------------|
 | A1 | CSV upload support | [DONE] Complete | Prompt A1 |
 | A3 | Concurrent component generation | [DONE] Complete | Prompt A3 |
-| D  | Mobile-responsive UI | [ ] Not started | Prompt D |
+| D  | Mobile-responsive UI | [DONE] Complete | Prompt D |
 | C  | Scheduled document ingestion | [ ] Not started | Prompt C |
 | B  | Receipt segregation | [ ] Not started | Prompts B1–B3 |
 | E  | Multi-currency support | [ ] Not started | Prompt E |
@@ -107,17 +107,17 @@ Makes all existing pages usable on mobile without breaking the desktop layout. A
 - Desktop layout and appearance
 
 ### Completion checklist
-- [ ] Dashboard usable on mobile viewport
-- [ ] FS generation page usable on mobile viewport
-- [ ] Financial model page usable on mobile viewport
-- [ ] Payroll page usable on mobile viewport
-- [ ] Corporate tax page usable on mobile viewport
-- [ ] Chatbot panel usable on mobile viewport
-- [ ] History tabs usable on mobile viewport
-- [ ] Touch targets at least 44px on all interactive elements
-- [ ] Desktop layout unchanged
-- [ ] TypeScript compiles clean
-- [ ] PHASES_V2.md status updated to [DONE]
+- [x] Dashboard usable on mobile viewport
+- [x] FS generation page usable on mobile viewport
+- [x] Financial model page usable on mobile viewport
+- [x] Payroll page usable on mobile viewport
+- [x] Corporate tax page usable on mobile viewport
+- [x] Chatbot panel usable on mobile viewport
+- [x] History tabs usable on mobile viewport
+- [x] Touch targets at least 44px on all interactive elements
+- [x] Desktop layout unchanged
+- [x] TypeScript compiles clean
+- [x] PHASES_V2.md status updated to [DONE]
 
 ---
 

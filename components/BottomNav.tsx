@@ -30,12 +30,12 @@ export function BottomNav() {
   return (
     <footer className="border-t bg-white">
       <Separator />
-      <nav className="flex items-center gap-6 px-6 py-3">
+      <nav className="flex items-center flex-wrap gap-x-4 gap-y-1 sm:gap-x-6 px-4 sm:px-6 py-2 sm:py-3">
         {NAV_ITEMS.map((item) => (
           <a
             key={item.label}
             href={item.href}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors py-1"
           >
             {item.label}
           </a>
