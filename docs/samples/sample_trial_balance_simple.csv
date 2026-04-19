@@ -1,0 +1,23 @@
+﻿Account Code,Account Name,Debit (SGD),Credit (SGD)
+1010,Cash at Bank - DBS Current Account,"95,000.00",0.00
+1110,Trade Receivables,"45,000.00",0.00
+1200,Prepayments,"8,000.00",0.00
+2010,Office Equipment (at cost),"30,000.00",0.00
+2011,Accumulated Depreciation - Equipment,0.00,"9,000.00"
+3010,Trade Payables,0.00,"22,000.00"
+3020,Accrued Expenses,0.00,"8,500.00"
+3050,CPF Payable,0.00,"3,500.00"
+3040,Income Tax Payable,0.00,"12,000.00"
+4010,Share Capital (Ordinary Shares),0.00,"50,000.00"
+4020,Retained Earnings (Opening Balance),0.00,"35,000.00"
+5010,Revenue - IT Consulting Services,0.00,"180,000.00"
+5020,Revenue - IT Support & Maintenance,0.00,"60,000.00"
+6010,Staff Salaries and Wages,"120,000.00",0.00
+6020,CPF Contributions - Employer,"20,400.00",0.00
+6110,Office Rental,"24,000.00",0.00
+6120,Utilities and Telecommunication,"6,000.00",0.00
+6420,Professional Fees (Legal & Accounting),"12,000.00",0.00
+6310,Depreciation - Office Equipment,"7,600.00",0.00
+6610,Income Tax Expense,"12,000.00",0.00
+,TOTAL,"380,000.00","380,000.00"
+,"Debits = Credits = SGD 380,000.00  |  BALANCED ✓",,

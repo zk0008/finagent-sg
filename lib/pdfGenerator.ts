@@ -33,7 +33,7 @@ const PAGE_MARGIN = 60;
 const PAGE_WIDTH = 595.28;   // A4 width in points
 const PAGE_HEIGHT = 841.89;  // A4 height in points
 const CONTENT_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2;
-const FOOTER_Y = PAGE_HEIGHT - PAGE_MARGIN / 2;
+const FOOTER_Y = PAGE_HEIGHT - PAGE_MARGIN - 15; // Within content area — avoids pdfkit auto-page overflow
 
 // Typography
 const FONT_REGULAR = "Helvetica";
