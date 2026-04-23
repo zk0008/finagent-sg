@@ -14,7 +14,7 @@ All improvements below are additive — no core workflow logic from Phases 0–7
 | A1 | CSV upload support | [DONE] Complete | Prompt A1 |
 | A3 | Concurrent component generation | [DONE] Complete | Prompt A3 |
 | D  | Mobile-responsive UI | [DONE] Complete | Prompt D |
-| C  | Scheduled document ingestion | [ ] Not started | Prompt C |
+| C  | Scheduled document ingestion | [DONE] Complete | Prompt C |
 | B  | Receipt segregation | [ ] Not started | Prompts B1–B3 |
 | E  | Multi-currency support | [ ] Not started | Prompt E |
 
@@ -174,17 +174,17 @@ Automatically checks monitored government document URLs when the app starts and 
 - Any Phase 0–7 application files beyond the startup wiring
 
 ### Completion checklist
-- [ ] `ingest-sources.json` created with all monitored URLs and initial hashes
-- [ ] `checkGovDocs.ts` runs on startup and logs result to terminal
-- [ ] Changed documents are re-ingested into ChromaDB automatically
-- [ ] Detected constant changes surface as terminal diff on startup
-- [ ] `applyUpdates.ts` runs interactively, one change at a time
-- [ ] Confirmed changes update the TypeScript source file correctly
-- [ ] Unconfident extractions flagged for manual review, not guessed
-- [ ] 24-hour re-check timer resets after each check
-- [ ] App starts normally regardless of fetch result
-- [ ] TypeScript compiles clean
-- [ ] PHASES_V2.md status updated to [DONE]
+- [x] `ingest-sources.json` created with all monitored URLs and initial hashes
+- [x] `checkGovDocs.ts` runs on startup and logs result to terminal
+- [x] Changed documents are re-ingested into ChromaDB automatically
+- [x] Detected constant changes surface as terminal diff on startup
+- [x] `applyUpdates.ts` runs interactively, one change at a time
+- [x] Confirmed changes update the TypeScript source file correctly
+- [x] Unconfident extractions flagged for manual review, not guessed
+- [x] 24-hour re-check timer resets after each check
+- [x] App starts normally regardless of fetch result
+- [x] TypeScript compiles clean
+- [x] PHASES_V2.md status updated to [DONE]
 
 ---
 
