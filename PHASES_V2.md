@@ -15,7 +15,7 @@ All improvements below are additive — no core workflow logic from Phases 0–7
 | A3 | Concurrent component generation | [DONE] Complete | Prompt A3 |
 | D  | Mobile-responsive UI | [DONE] Complete | Prompt D |
 | C  | Scheduled document ingestion | [DONE] Complete | Prompt C |
-| B  | Receipt segregation | [ ] Not started | Prompts B1–B3 |
+| B  | Receipt segregation | [WIP] In progress | Prompts B1–B3 |
 | E  | Multi-currency support | [ ] Not started | Prompt E |
 
 Status values: [ ] Not started → [WIP] In progress → [DONE] Complete → [BLOCKED] Blocked (reason noted)

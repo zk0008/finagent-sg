@@ -296,6 +296,49 @@ CREATE TABLE IF NOT EXISTS client_schema.payslips (
   created_at       TIMESTAMPTZ DEFAULT now()
 );
 
+-- receipts: Extracted line items from uploaded receipts or bank statement exports.
+-- One row per line item. type is 'income' or 'expense' (set by the user at upload time).
+-- extraction_confidence indicates how reliably the value was extracted from the source document.
+-- source_file stores the original filename for traceability.
+-- updated_at is set by the application on any edit (not auto-updated by a trigger).
+CREATE TABLE IF NOT EXISTS client_schema.receipts (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  period                TEXT NOT NULL,                          -- e.g. "March 2026"
+  type                  TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+  description           TEXT NOT NULL,                         -- Merchant name or item description
+  amount                NUMERIC(15, 2) NOT NULL,               -- Extracted amount in the stated currency
+  currency              TEXT NOT NULL DEFAULT 'SGD',
+  extraction_confidence TEXT NOT NULL CHECK (
+                          extraction_confidence IN ('high', 'medium', 'low', 'manual')
+                        ),
+  source_file           TEXT,                                   -- Original filename (nullable)
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ── Test schema: techsoft_pte_ltd — Improvement B receipts table ──────────────
+-- Run the following SQL in Supabase SQL editor to add the receipts table
+-- to the existing techsoft_pte_ltd test schema:
+--
+-- CREATE TABLE IF NOT EXISTS techsoft_pte_ltd.receipts (
+--   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   period                TEXT NOT NULL,
+--   type                  TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+--   description           TEXT NOT NULL,
+--   amount                NUMERIC(15, 2) NOT NULL,
+--   currency              TEXT NOT NULL DEFAULT 'SGD',
+--   extraction_confidence TEXT NOT NULL CHECK (
+--                           extraction_confidence IN ('high', 'medium', 'low', 'manual')
+--                         ),
+--   source_file           TEXT,
+--   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+-- );
+--
+-- GRANT ALL ON techsoft_pte_ltd.receipts TO anon, authenticated, service_role;
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA techsoft_pte_ltd
+--   GRANT ALL ON TABLES TO anon, authenticated, service_role;
+
 -- ============================================================
 -- PGVECTOR — RAG Knowledge Base (Phase 6, Task 5)
 -- ============================================================
