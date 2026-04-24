@@ -53,6 +53,9 @@ skills/sg-accounting-standards/SKILL.md
 skills/sg-payroll-cpf/SKILL.md
 skills/sg-corporate-tax/SKILL.md
 
+# Government doc watcher — timestamps update on every dev start, no value in tracking
+scripts/ingest-sources.json
+
 # ML pipeline
 ml/.env
 ml/venv/
