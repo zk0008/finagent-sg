@@ -15,10 +15,10 @@ All improvements below are additive — no core workflow logic from Phases 0–7
 | A3 | Concurrent component generation | [DONE] Complete | Prompt A3 |
 | D  | Mobile-responsive UI | [DONE] Complete | Prompt D |
 | C  | Scheduled document ingestion | [DONE] Complete | Prompt C |
-| B  | Receipt segregation | [WIP] In progress | Prompts B1–B3 |
-| E  | Multi-currency support | [ ] Not started | Prompt E |
+| B  | Receipt segregation | [DONE] Complete | Prompts B1–B3 |
+| E  | Multi-currency support | [POSTPONED] | Prompt E |
 
-Status values: [ ] Not started → [WIP] In progress → [DONE] Complete → [BLOCKED] Blocked (reason noted)
+Status values: [ ] Not started → [WIP] In progress → [DONE] Complete → [BLOCKED] Blocked (reason noted) → [POSTPONED] Deferred indefinitely
 
 ---
 
@@ -228,20 +228,21 @@ Columns: id, period, type (income/expense), merchant/description, amount, curren
 - **Prompt B3:** Trial balance generation from confirmed receipts + Excel export + navigation wiring
 
 ### Completion checklist
-- [ ] Two upload fields accept PDF, image, CSV
-- [ ] GPT-4.1 Vision extracts line items from PDF and image uploads
-- [ ] CSV parsing extracts line items from CSV uploads
-- [ ] Extracted line items displayed in editable table
-- [ ] Low-confidence extractions flagged visibly in the table
-- [ ] User can edit any field before confirming
-- [ ] Confirmed data generates a valid trial balance
-- [ ] Trial balance preview displayed before saving
-- [ ] Trial balance exportable as Excel
-- [ ] Transactions saved to receipts table in client Supabase schema
-- [ ] Transaction period stored per upload
-- [ ] bignumber.js used for all amount arithmetic
-- [ ] TypeScript compiles clean
-- [ ] PHASES_V2.md status updated to [DONE]
+- [x] Two upload fields accept PDF, image, CSV
+- [x] GPT-4.1 Vision extracts line items from PDF and image uploads
+- [x] CSV parsing extracts line items from CSV uploads
+- [x] Extracted line items displayed in editable table
+- [x] Low-confidence extractions flagged visibly in the table
+- [x] User can edit any field before confirming
+- [x] Confirmed data generates a valid trial balance
+- [x] Trial balance preview displayed before saving
+- [x] Trial balance exportable as Excel
+- [x] Transactions saved to receipts table in client Supabase schema
+- [x] Transaction period stored per upload
+- [x] bignumber.js used for all amount arithmetic
+- [x] Manual row entry supported on both income and expense tables
+- [x] TypeScript compiles clean
+- [x] PHASES_V2.md status updated to [DONE]
 
 ---
 

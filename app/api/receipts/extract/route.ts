@@ -195,11 +195,11 @@ async function extractVision(
   fileBuffer: ArrayBuffer,
   mimeType: string
 ): Promise<ReceiptLineItem[]> {
-  // Encode as a base64 data URL — this embeds the MIME type in the URL string,
-  // which is the correct way to pass typed binary content to the Vercel AI SDK
-  // ImagePart (the separate mimeType field is not part of the ImagePart interface).
-  const base64 = Buffer.from(fileBuffer).toString("base64");
-  const dataUrl = `data:${mimeType};base64,${base64}`;
+  // Pass image bytes directly as Uint8Array with mediaType.
+  // The Vercel AI SDK's ImagePart accepts Uint8Array via the DataContent union.
+  // Passing a data: URL string causes the SDK to treat it as a URL and attempt
+  // an http download, which fails with "URL scheme must be http or https".
+  const uint8 = new Uint8Array(fileBuffer);
 
   const { object } = await generateObject({
     model: openai(MODEL_ROUTES.fs_generation), // "gpt-4.1" — accuracy-critical
@@ -209,7 +209,7 @@ async function extractVision(
         role: "user" as const,
         content: [
           { type: "text" as const, text: VISION_PROMPT },
-          { type: "image" as const, image: dataUrl },
+          { type: "image" as const, image: uint8, mediaType: mimeType },
         ],
       },
     ],

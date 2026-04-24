@@ -106,9 +106,13 @@ finagent-sg/
 │       │   ├── journal/route.ts               # Phase 4: POST payroll journal entries JSON
 │       │   ├── employees/route.ts             # Phase 4: GET list + POST create employee
 │       │   └── employees/[id]/route.ts        # Phase 4: PUT update + DELETE employee
-│       └── tax/
-│           ├── compute/route.ts               # Phase 7: POST corporate tax computation
-│           └── pdf/route.ts                   # Phase 7: POST tax computation schedule PDF
+│       ├── tax/
+│       │   ├── compute/route.ts               # Phase 7: POST corporate tax computation
+│       │   └── pdf/route.ts                   # Phase 7: POST tax computation schedule PDF
+│       └── receipts/
+│           ├── extract/route.ts               # Improvement B: POST extract line items from PDF/image/CSV
+│           ├── save/route.ts                  # Improvement B: POST save confirmed items to receipts table
+│           └── export-excel/route.ts          # Improvement B: POST export trial balance as Excel
 ├── components/
 │   ├── WorkflowPanel.tsx           # Phase 2+3+4: task selector, FS + Model + Payroll workflows
 │   ├── FSPreview.tsx               # Phase 3: in-browser FS preview modal
@@ -118,7 +122,7 @@ finagent-sg/
 │   ├── PayrollWorkflow.tsx         # Phase 4: 3-step payroll UI (employees → run → download)
 │   ├── TaxWorkflow.tsx             # Phase 7: 3-step corporate tax UI (setup → adjustments → results)
 │   ├── ChatbotPanel.tsx            # Phase 1: training & feedback chatbot
-│   └── BottomNav.tsx
+│   └── BottomNav.tsx               # Improvement B: added Receipts nav entry
 ├── lib/
 │   ├── chromaClient.ts             # Phase 0: ChromaDB client
 │   ├── schemaUtils.ts              # Phase 0: generateSchemaName()
@@ -145,6 +149,7 @@ finagent-sg/
 │   ├── payrollJournal.ts           # Phase 4: double-entry payroll journal entries
 │   ├── taxEngine.ts                # Phase 7: pure-arithmetic corporate tax engine
 │   ├── taxPdfGenerator.ts          # Phase 7: pdfkit tax computation schedule PDF
+│   ├── receiptToTrialBalance.ts    # Improvement B: generate TrialBalanceLine[] from receipt items
 │   └── utils.ts
 ├── trigger/
 │   └── fsGenerationJob.ts          # Phase 2: Trigger.dev background job definition
@@ -154,7 +159,10 @@ finagent-sg/
 │   ├── createSampleTrialBalance.ts # Phase 2: creates docs/samples/sample_trial_balance.xlsx
 │   ├── exportTrainingData.ts       # Phase 5: export reviewed corrections as JSONL
 │   ├── runFineTuning.ts            # Phase 5: upload JSONL + create fine-tuning job
-│   └── migrateChromaToPgvector.ts  # Phase 6: one-time ChromaDB → pgvector migration
+│   ├── migrateChromaToPgvector.ts  # Phase 6: one-time ChromaDB → pgvector migration
+│   ├── checkGovDocs.ts             # Improvement C: fetch/hash gov docs, extract constants, write pending updates
+│   ├── applyUpdates.ts             # Improvement C: interactive diff-and-confirm CLI for pending updates
+│   └── ingest-sources.json         # Improvement C: monitored URLs and stored SHA-256 hashes
 ├── skills/
 │   ├── sg-accounting-standards/SKILL.md  # Phase 2: SG accounting rules
 │   ├── sg-payroll-cpf/SKILL.md           # Phase 4: CPF rates + payroll rules (1 Jan 2026)
@@ -167,6 +175,8 @@ finagent-sg/
 │   │   └── sample_trial_balance.xlsx  # Phase 2: 41-account sample (balanced, SGD 1,207,800)
 │   └── training/
 │       └── README.txt              # Phase 5: fine-tuning instructions
+├── app/receipts/page.tsx           # Improvement B: receipt segregation page (upload, extract, manual entry, TB preview)
+├── instrumentation.ts              # Improvement C: Next.js startup hook — wires gov-doc watcher on dev server start
 ├── auth.ts
 ├── middleware.ts
 ├── proxy.ts

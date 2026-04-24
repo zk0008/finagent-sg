@@ -8,7 +8,8 @@ FinAgent-SG is an AI-powered accounting assistant for Singapore private limited 
 
 ## Use Cases
 
-- **Financial Statement Preparation** — Upload a trial balance and receive a complete set of SFRS-compliant financial statements as a downloadable PDF.
+- **Financial Statement Preparation** — Upload a trial balance (Excel or CSV) and receive a complete set of SFRS-compliant financial statements as a downloadable PDF.
+- **Receipt Segregation** — Upload receipts, invoices, or bank statement exports (PDF, image, or CSV). GPT-4.1 Vision extracts line items automatically; items can also be entered manually. Review and correct the editable table, then generate a trial balance and export it as Excel.
 - **Financial Model Builder** — Generate multi-year financial projections with base, best-case, and worst-case scenarios, and compare them against actual results.
 - **Payroll & CPF Processing** — Run monthly payroll, compute CPF contributions, generate MOM-compliant payslips, and export the CPF e-Submit file.
 - **Corporate Tax Computation** — Automatically determine the correct IRAS form type (C-S Lite, C-S, or Form C), apply the correct exemption scheme, compute chargeable income after adjustments, and calculate net tax payable including the YA 2026 CIT Rebate. Download the tax computation schedule as a PDF.
@@ -18,7 +19,7 @@ FinAgent-SG is an AI-powered accounting assistant for Singapore private limited 
 ## How It Works
 
 1. Sign in with your account (public registration is disabled — contact your administrator to be added).
-2. Upload the client's trial balance as an Excel file.
+2. Upload the client's trial balance as an Excel or CSV file, or use the Receipt Segregation workflow to build a trial balance from receipts and invoices.
 3. The AI reviews the accounts, applies Singapore Financial Reporting Standards, and generates a full set of financial statements.
 4. Review the output in the browser and download the PDF.
 5. If anything looks incorrect, submit a correction through the integrated chatbot — corrections are immediately added to the knowledge base.
@@ -102,6 +103,10 @@ curl http://localhost:8000/api/v2/version
 # Note: only the shared users table is created by the schema SQL.
 # Per-client schemas are created automatically when you add a
 # client through the app.
+#
+# If you have existing client schemas, also run the receipts table
+# migration block at the bottom of supabase/schema.sql for each
+# schema to enable the Receipt Segregation feature.
 
 # 6. Ingest knowledge base documents into ChromaDB
 npx tsx scripts/ingest.ts
@@ -166,6 +171,27 @@ npx tsx scripts/ingest.ts
 # Test RAG retrieval with 5 sample queries
 npx tsx scripts/testRag.ts
 ```
+
+---
+
+## Government Document Monitoring
+
+On every `npm run dev` startup, FinAgent-SG automatically fetches three monitored government sources (CPF Board, IRAS, ASC/ACRA), compares their SHA-256 hashes against the stored values in `scripts/ingest-sources.json`, and reports the result in the terminal. If a document has changed, it is re-ingested into ChromaDB and any new values for hardcoded constants (CPF rates, tax rates, SDL cap, etc.) are extracted and written to `scripts/pending-updates.json` as a diff.
+
+The check re-runs every 24 hours of continuous uptime. App startup is never blocked — the check runs in the background.
+
+To review and apply any detected constant changes:
+
+```bash
+npx tsx scripts/applyUpdates.ts
+```
+
+This opens an interactive CLI that shows each pending change (current value vs extracted value), asks for confirmation one change at a time, and patches the TypeScript source file directly. The app hot-reloads automatically after each confirmed write (Next.js dev mode).
+
+Monitored sources:
+- CPF Board — contribution rate tables
+- IRAS — corporate income tax rate, rebates, and exemption schemes
+- ASC/ACRA — Singapore Financial Reporting Standards
 
 ---
 
@@ -247,13 +273,20 @@ LANGFUSE_HOST                       # https://cloud.langfuse.com
 
 ## Project Structure
 
-| Folder | Description |
-|--------|-------------|
+| Folder / File | Description |
+|---------------|-------------|
 | `app/` | Next.js pages and API routes |
+| `app/receipts/` | Receipt Segregation page — upload, extract, manual entry, trial balance preview |
+| `app/api/receipts/` | Receipt API routes — extract, save, export-excel |
 | `components/` | Reusable UI components |
 | `lib/` | Core business logic and utility modules |
+| `lib/receiptToTrialBalance.ts` | Converts confirmed receipt items into a balanced TrialBalanceLine array |
 | `scripts/` | CLI scripts for data ingestion and maintenance |
-| `supabase/` | Database schema SQL |
+| `scripts/checkGovDocs.ts` | Fetches monitored government URLs, hashes content, extracts constant changes |
+| `scripts/applyUpdates.ts` | Interactive diff-and-confirm CLI for applying extracted constant changes |
+| `scripts/ingest-sources.json` | Monitored government source URLs and stored SHA-256 hashes |
+| `instrumentation.ts` | Next.js startup hook — fires the government document watcher in the background |
+| `supabase/` | Database schema SQL (includes `receipts` table migration) |
 | `trigger/` | Background job definitions |
 | `skills/` | Domain knowledge files for Singapore accounting and payroll rules |
 | `docs/` | Reference documents, sample files, and training data |
