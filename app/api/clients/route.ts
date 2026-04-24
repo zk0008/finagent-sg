@@ -398,5 +398,18 @@ function buildSchemaSQL(schemaName: string): string {
       tax_payable           NUMERIC(18, 2) NOT NULL,
       created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS ${schemaName}.receipts (
+      id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      period                TEXT NOT NULL,
+      type                  TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+      description           TEXT NOT NULL,
+      amount                NUMERIC(15, 2) NOT NULL,
+      currency              TEXT NOT NULL DEFAULT 'SGD',
+      extraction_confidence TEXT NOT NULL CHECK (extraction_confidence IN ('high', 'medium', 'low', 'manual')),
+      source_file           TEXT,
+      created_at            TIMESTAMPTZ DEFAULT now(),
+      updated_at            TIMESTAMPTZ DEFAULT now()
+    );
   `;
 }
