@@ -20,7 +20,7 @@ export const EntitySchema = z.object({
   name: z.string().min(1, "Company name is required"),
   uen: z
     .string()
-    .regex(/^[0-9]{9}[A-Z]$|^T[0-9]{2}[A-Z]{2}[0-9]{4}[A-Z]$/, "Invalid UEN format"),
+    .regex(/^[0-9]{8}[A-Z]$|^[0-9]{9}[A-Z]$|^[TS][0-9]{2}[A-Z]{2}[0-9]{4}[A-Z]$/, "Invalid UEN format"),
   company_type: z.enum(["private_ltd", "llp", "sole_prop"]),
   fye_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "FYE date must be YYYY-MM-DD"),
   audit_exempt: z.boolean(),
