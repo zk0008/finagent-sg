@@ -125,22 +125,22 @@ const extractionEntrySchema = z.object({
 /** Fields extracted from the CPF contribution rate document */
 const cpfExtractionSchema = z.object({
   ow_ceiling: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Monthly ordinary wage ceiling in SGD — plain integer, e.g. '8000'"),
   annual_salary_ceiling: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Annual wage ceiling (OW + AW combined) in SGD — plain integer, e.g. '102000'"),
   sdl_rate: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Skills Development Levy rate as decimal — e.g. '0.0025' for 0.25%"),
   sdl_min: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("SDL minimum amount in SGD — plain number, e.g. '2'"),
   sdl_max: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("SDL maximum amount in SGD — plain number, e.g. '11.25'"),
   sdl_wage_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("SDL wage cap — wages above this are not subject to SDL, in SGD — plain integer, e.g. '4500'"),
   table1_rates: z
     .object({
@@ -150,7 +150,7 @@ const cpfExtractionSchema = z.object({
         .max(1000)
         .describe("Full textual content of the SC and 3rd-year SPR rate table showing all age tiers"),
     })
-    .optional()
+    .nullable()
     .describe("CPF Table 1: SC and SPR 3rd year+ contribution rates by age tier"),
   table2_rates: z
     .object({
@@ -160,7 +160,7 @@ const cpfExtractionSchema = z.object({
         .max(1000)
         .describe("Full textual content of the SPR 1st year rate table showing all age tiers"),
     })
-    .optional()
+    .nullable()
     .describe("CPF Table 2: SPR 1st year (graduated G/G) contribution rates by age tier"),
   table3_rates: z
     .object({
@@ -170,62 +170,62 @@ const cpfExtractionSchema = z.object({
         .max(1000)
         .describe("Full textual content of the SPR 2nd year rate table showing all age tiers"),
     })
-    .optional()
+    .nullable()
     .describe("CPF Table 3: SPR 2nd year (graduated G/G) contribution rates by age tier"),
 });
 
 /** Fields extracted from the IRAS corporate tax rate document */
 const irasExtractionSchema = z.object({
   tax_rate: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Corporate income tax rate as decimal — e.g. '0.17' for 17%"),
   startup_tier1_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("New start-up tax exemption first tier income cap in SGD — e.g. '100000'"),
   startup_tier1_exempt: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("New start-up first tier exemption rate as decimal — e.g. '0.75' for 75%"),
   startup_tier2_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("New start-up tax exemption second tier income cap in SGD — e.g. '100000'"),
   startup_tier2_exempt: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("New start-up second tier exemption rate as decimal — e.g. '0.50' for 50%"),
   partial_tier1_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Partial tax exemption first tier income cap in SGD — e.g. '10000'"),
   partial_tier1_exempt: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Partial exemption first tier rate as decimal — e.g. '0.75' for 75%"),
   partial_tier2_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Partial tax exemption second tier income cap in SGD — e.g. '190000'"),
   partial_tier2_exempt: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Partial exemption second tier rate as decimal — e.g. '0.50' for 50%"),
   cit_rebate_rate: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("YA CIT rebate rate as decimal — e.g. '0.40' for 40%"),
   cit_rebate_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("YA CIT rebate cap in SGD — e.g. '30000'"),
   cit_cash_grant: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("CIT rebate cash grant amount in SGD — e.g. '1500'"),
   form_cs_lite_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Revenue threshold for Form C-S Lite in SGD — e.g. '200000'"),
   form_cs_cap: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe("Revenue threshold for Form C-S (above → Form C required) in SGD — e.g. '5000000'"),
   sg_corporate_tax_rate: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe(
       "Corporate tax rate as an integer percentage string (NOT decimal) — e.g. '17' for 17%. " +
       "This is used in AI prompt text, not arithmetic."
     ),
   sg_small_company_effective_tax_rate: extractionEntrySchema
-    .optional()
+    .nullable()
     .describe(
       "Effective tax rate for small company with partial exemption, as a decimal percentage string — " +
       "e.g. '8.5' for 8.5%. This is used in AI prompt text, not arithmetic."
