@@ -34,6 +34,19 @@ type NodeReturn = Partial<State>;
 // NEXTAUTH_URL is set to the app's canonical URL in both dev and production.
 const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
+// Short month names used by formatSavedDate — avoids locale-dependent toLocaleString output
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+/**
+ * Formats a Supabase ISO timestamp string as "D MMM YYYY" (e.g. "3 May 2026").
+ * Used in fetchedContext entries so the user can see when saved data was last written.
+ * Uses UTC interpretation to avoid timezone-shift surprises on the server.
+ */
+function formatSavedDate(isoString: string): string {
+  const d = new Date(isoString);               // parse the ISO 8601 timestamp
+  return `${d.getUTCDate()} ${MONTH_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
 // ─── Node 1: Validation Node ─────────────────────────────────────────────────
 
 /**
@@ -189,6 +202,11 @@ export async function financialStatementNode(state: State): Promise<NodeReturn> 
     return {
       fsOutputId: data.fsOutputId as string,    // UUID of the new outputs row
       fsResult:   data.fsResult   as object,    // full FSOutput for the summary node
+      // Record that we loaded classified accounts for this fiscal year from Supabase.
+      // The wrapper route fetches them from the outputs table keyed by fiscal year.
+      fetchedContext: {
+        financialStatementNode: `Loaded classified accounts from FY${state.financialYear} trial balance`,
+      },
     };
 
   } catch (err) {
@@ -236,7 +254,19 @@ export async function payrollNode(state: State): Promise<NodeReturn> {
     // Only parse JSON once we know the response is a 2xx success
     const data = await res.json() as Record<string, unknown>;
 
-    return { payrollResult: data as object };
+    // The wrapper route returns a results array with one entry per employee.
+    // Cast to unknown[] so we can read .length without a full type annotation.
+    const employeeCount = Array.isArray(data.results)
+      ? (data.results as unknown[]).length
+      : 0;
+
+    return {
+      payrollResult: data as object,
+      // Record how many employee records were loaded from Supabase by the wrapper route.
+      fetchedContext: {
+        payrollNode: `Loaded ${employeeCount} employee record${employeeCount !== 1 ? "s" : ""} for ${state.clientId}`,
+      },
+    };
 
   } catch (err) {
     return {
@@ -262,13 +292,19 @@ export async function taxNode(state: State): Promise<NodeReturn> {
   // most recently saved FS output in Supabase for this client schema.
   let fsOutputId = state.fsOutputId;
 
+  // Will be set only when fsOutputId is resolved via Supabase fallback (not from
+  // shared state). Undefined when FS ran in the same session — no context needed then.
+  let taxFetchedContext: string | undefined;
+
   if (!fsOutputId) {
-    // FS did not run in this invocation — look up the latest saved output row
+    // FS did not run in this invocation — look up the latest saved output row.
+    // Select created_at and fiscal_year_id alongside id so we can surface the
+    // saved date and fiscal year in the fetchedContext entry.
     try {
       const { data: outputRow } = await supabase
         .schema(state.clientId)          // each client has its own Postgres schema
         .from("outputs")
-        .select("id")
+        .select("id, created_at, fiscal_year_id")  // extended to capture context fields
         .eq("output_type", "financial_statements")  // only FS outputs, not model outputs
         .order("created_at", { ascending: false })  // most recent first
         .limit(1)
@@ -276,6 +312,32 @@ export async function taxNode(state: State): Promise<NodeReturn> {
 
       if (outputRow) {
         fsOutputId = outputRow.id as string;  // use the saved output's UUID
+
+        // Format the saved date from the ISO timestamp (e.g. "3 May 2026")
+        const savedDate = formatSavedDate(outputRow.created_at as string);
+
+        // Look up the fiscal year end date to derive the calendar year (e.g. "FY2025")
+        try {
+          const { data: fyRow } = await supabase
+            .schema(state.clientId)
+            .from("fiscal_years")
+            .select("end_date")
+            .eq("id", outputRow.fiscal_year_id as string)  // match the specific FY row
+            .single();
+
+          // Parse the year from end_date ("YYYY-MM-DD"); append T00:00:00 to avoid UTC offset issues
+          const fyYear = fyRow
+            ? new Date((fyRow.end_date as string) + "T00:00:00").getFullYear()
+            : null;
+
+          // Include FY year when available; fall back to date-only description if not
+          taxFetchedContext = fyYear
+            ? `Used financial statement for FY${fyYear} (saved ${savedDate})`
+            : `Used financial statement saved ${savedDate}`;
+        } catch {
+          // FY lookup failed — still record the saved date without the year label
+          taxFetchedContext = `Used financial statement saved ${savedDate}`;
+        }
       }
     } catch {
       // Supabase lookup failed — fall through to the missing-output error below
@@ -320,7 +382,13 @@ export async function taxNode(state: State): Promise<NodeReturn> {
     // Only parse JSON once we know the response is a 2xx success
     const data = await res.json() as Record<string, unknown>;
 
-    return { taxResult: data as object };
+    return {
+      taxResult: data as object,
+      // Only include fetchedContext when the ID came from Supabase (background fetch).
+      // When FS ran in the same session and passed fsOutputId via shared state,
+      // no background fetch occurred — omit the entry to avoid misleading the user.
+      ...(taxFetchedContext ? { fetchedContext: { taxNode: taxFetchedContext } } : {}),
+    };
 
   } catch (err) {
     return {
@@ -346,13 +414,19 @@ export async function financialModelNode(state: State): Promise<NodeReturn> {
   // most recently saved FS output in Supabase for this client schema.
   let fsOutputId = state.fsOutputId;
 
+  // Will be set only when fsOutputId is resolved via Supabase fallback (not from
+  // shared state). Undefined when FS ran in the same session — no context needed then.
+  let modelFetchedContext: string | undefined;
+
   if (!fsOutputId) {
-    // FS did not run in this invocation — look up the latest saved output row
+    // FS did not run in this invocation — look up the latest saved output row.
+    // Select created_at and fiscal_year_id alongside id so we can surface the
+    // saved date and fiscal year in the fetchedContext entry.
     try {
       const { data: outputRow } = await supabase
         .schema(state.clientId)          // each client has its own Postgres schema
         .from("outputs")
-        .select("id")
+        .select("id, created_at, fiscal_year_id")  // extended to capture context fields
         .eq("output_type", "financial_statements")  // only FS outputs, not model outputs
         .order("created_at", { ascending: false })  // most recent first
         .limit(1)
@@ -360,6 +434,32 @@ export async function financialModelNode(state: State): Promise<NodeReturn> {
 
       if (outputRow) {
         fsOutputId = outputRow.id as string;  // use the saved output's UUID
+
+        // Format the saved date from the ISO timestamp (e.g. "3 May 2026")
+        const savedDate = formatSavedDate(outputRow.created_at as string);
+
+        // Look up the fiscal year end date to derive the calendar year (e.g. "FY2025")
+        try {
+          const { data: fyRow } = await supabase
+            .schema(state.clientId)
+            .from("fiscal_years")
+            .select("end_date")
+            .eq("id", outputRow.fiscal_year_id as string)  // match the specific FY row
+            .single();
+
+          // Parse the year from end_date ("YYYY-MM-DD"); append T00:00:00 to avoid UTC offset issues
+          const fyYear = fyRow
+            ? new Date((fyRow.end_date as string) + "T00:00:00").getFullYear()
+            : null;
+
+          // Include FY year when available; fall back to date-only description if not
+          modelFetchedContext = fyYear
+            ? `Used financial statement for FY${fyYear} (saved ${savedDate})`
+            : `Used financial statement saved ${savedDate}`;
+        } catch {
+          // FY lookup failed — still record the saved date without the year label
+          modelFetchedContext = `Used financial statement saved ${savedDate}`;
+        }
       }
     } catch {
       // Supabase lookup failed — fall through to the missing-output error below
@@ -402,7 +502,13 @@ export async function financialModelNode(state: State): Promise<NodeReturn> {
     // Only parse JSON once we know the response is a 2xx success
     const data = await res.json() as Record<string, unknown>;
 
-    return { financialModelResult: data as object };
+    return {
+      financialModelResult: data as object,
+      // Only include fetchedContext when the ID came from Supabase (background fetch).
+      // When FS ran in the same session and passed fsOutputId via shared state,
+      // no background fetch occurred — omit the entry to avoid misleading the user.
+      ...(modelFetchedContext ? { fetchedContext: { financialModelNode: modelFetchedContext } } : {}),
+    };
 
   } catch (err) {
     return {
@@ -468,5 +574,20 @@ export function summaryNode(state: State): NodeReturn {
     lines.push("No workflows were executed. Please check your goal and try again.");
   }
 
-  return { summary: lines.join(" ") };
+  // Build the workflow completion text first (existing behaviour unchanged)
+  let summaryText = lines.join(" ");
+
+  // ── Append "Data used" section if any node recorded a Supabase fetch ────────
+  // fetchedContext is populated by nodes that resolved data from Supabase in the
+  // background (e.g. taxNode falling back to the latest saved FS output). Nodes
+  // that received data via shared graph state do not write to fetchedContext.
+  const contextEntries = Object.entries(state.fetchedContext);  // [nodeName, description]
+  if (contextEntries.length > 0) {
+    // Build one bullet line per entry; order follows insertion order of the object
+    const bulletLines = contextEntries.map(([, description]) => `- ${description}`);
+    // Append as a separate block after the workflow summary lines
+    summaryText += "\nData used:\n" + bulletLines.join("\n");
+  }
+
+  return { summary: summaryText };
 }

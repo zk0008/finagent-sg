@@ -157,6 +157,58 @@ export function AgentProgressPanel({
           </div>
         )}
 
+        {/* ── Case 4: per-workflow download guidance ────────────────────────────
+            Shown only after the graph finishes (summary present) and only for
+            nodes that completed successfully. Errored nodes are excluded.
+            Derived from the nodes prop — no new props required.
+            Visually distinct from the summary via a border instead of bg-muted. */}
+        {summary && (() => {
+          // Helper: returns true when the named node finished without error
+          const completed = (name: string) =>
+            nodes.some((n) => n.name === name && n.status === "complete");
+
+          // Build one guidance line per completed workflow; order matches graph flow
+          const lines: { key: string; text: string }[] = [];
+
+          if (completed("financialStatementNode")) {
+            lines.push({
+              key: "fs",
+              text: "📄 Your financial statement is ready. Go to Financial Statements in the left panel to view and download your PDF.",
+            });
+          }
+          if (completed("payrollNode")) {
+            lines.push({
+              key: "payroll",
+              text: "💼 Your payroll is ready. Go to Payroll in the left panel to view and download payslips, CPF e-Submit, and journal entries.",
+            });
+          }
+          if (completed("taxNode")) {
+            lines.push({
+              key: "tax",
+              text: "🧾 Your tax computation is ready. Go to Corporate Tax in the left panel to view and download your tax schedule.",
+            });
+          }
+          if (completed("financialModelNode")) {
+            lines.push({
+              key: "model",
+              text: "📊 Your financial model is ready. Go to Financial Model in the left panel to view and download your projections.",
+            });
+          }
+
+          // Render nothing if no workflow completed (e.g. validation-only run or all errors)
+          if (lines.length === 0) return null;
+
+          return (
+            <div className="rounded-md border border-border bg-background px-3 py-2 mt-2 space-y-1">
+              {lines.map((line) => (
+                <p key={line.key} className="text-xs text-muted-foreground">
+                  {line.text}
+                </p>
+              ))}
+            </div>
+          );
+        })()}
+
       </CardContent>
     </Card>
   );

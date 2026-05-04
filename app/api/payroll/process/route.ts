@@ -63,27 +63,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // e.g. payrollMonth=12, payrollYear=2025 → "2025-12-01"
   const payrollMonthDate = `${payrollYear}-${String(payrollMonth).padStart(2, "0")}-01`;
 
-  // ── Step 1: Load entity ID ─────────────────────────────────────────────────
-  // We need entity_id to scope the employees query and to write the payroll_run row
-  const { data: entityRow, error: entityError } = await supabase
-    .schema(schemaName)
-    .from("entities")
-    .select("id")
-    .limit(1)
-    .single();
+  // ── Step 1: Load entity ID from the shared registry ──────────────────────
+  // Read entity_id from public.client_schemas rather than from {schema}.entities.
+  // The UI creates employees using the entity_id stored in client_schemas, so this
+  // is the canonical UUID that employee rows are keyed on. Querying {schema}.entities
+  // can return a different UUID if the entity row was ever recreated (e.g. a data
+  // migration or schema reset), causing the employee filter in Step 2 to match 0 rows
+  // even though employees exist. Using client_schemas as the source of truth avoids
+  // this divergence and keeps the agent route consistent with the UI's data path.
+  const { data: registryRow, error: registryError } = await supabase
+    .from("client_schemas")               // public schema — no .schema() call needed
+    .select("entity_id")
+    .eq("schema_name", schemaName)        // look up by the slug sent from the chat UI
+    .maybeSingle();
 
-  if (entityError || !entityRow) {
-    return NextResponse.json({ error: "Entity not found in schema" }, { status: 404 });
+  if (registryError || !registryRow?.entity_id) {
+    return NextResponse.json({ error: "Entity not found in schema registry" }, { status: 404 });
   }
 
-  const entityId = entityRow.id as string;
+  const entityId = registryRow.entity_id as string;  // canonical UUID shared with the UI
 
-  // ── Step 2: Load all employees for this entity ────────────────────────────
+  // ── Step 2: Load employees for this entity ────────────────────────────────
+  // Filter by entity_id so the query is scoped to the correct entity even if
+  // orphan rows exist (e.g. from a prior schema state). entity_id here comes
+  // from client_schemas — the same source the UI uses when creating employees.
   const { data: employeeRows, error: empError } = await supabase
     .schema(schemaName)
     .from("employees")
     .select("id, dob, citizenship, monthly_salary")
-    .eq("entity_id", entityId);
+    .eq("entity_id", entityId);          // filter restored now that entityId is correct
 
   if (empError) {
     return NextResponse.json(

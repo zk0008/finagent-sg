@@ -102,6 +102,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     taxResult:           undefined,
     financialModelResult: undefined,
     errors:              {},      // nodes write { nodeName: errorMessage } on failure
+    fetchedContext:      {},      // nodes write plain-English descriptions of Supabase fetches
     summary:             undefined,
   };
 

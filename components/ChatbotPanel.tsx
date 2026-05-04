@@ -35,7 +35,7 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react"; // useEffect added for outside-click listener
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,17 +66,12 @@ interface ChatbotPanelProps {
   clientSelected?: boolean;
 }
 
-// Initial messages shown on load — Phase 0 placeholder examples
+// Single welcome message shown on load — replaces the old dummy conversation
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
-    role: "user",
+    role: "system",
     content:
-      "The depreciation for FY2024 should use straight-line, not reducing balance.",
-  },
-  {
-    role: "assistant",
-    content:
-      "Noted. I've updated the depreciation rule for this client. The next financial statement generation will use straight-line depreciation.",
+      "Welcome to FinAgent. Select a client from the left panel, then type a command or question below.",
   },
 ];
 
@@ -86,6 +81,32 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false }:
 
   // Controlled state for text input
   const [inputValue, setInputValue] = useState("");
+
+  // Controls whether the floating hint panel is visible.
+  // Set true on textarea focus; cleared only when the user clicks outside
+  // the wrapper div (both the textarea and the hint panel).
+  const [showHint, setShowHint] = useState(false);
+
+  // Ref on the wrapper div that contains both the hint panel and the textarea.
+  // Used by the outside-click handler to detect clicks that land outside both elements.
+  const hintWrapperRef = useRef<HTMLDivElement>(null);
+
+  // ── Outside-click handler for the hint panel ───────────────────────────────
+  // Attach a mousedown listener to the document on mount; remove it on unmount.
+  // mousedown fires before blur, so we can check containment before React
+  // processes the blur event and before the hint would disappear.
+  useEffect(() => {
+    function handleDocumentMouseDown(e: MouseEvent) {
+      // If the click target is inside the wrapper (textarea or hint panel), do nothing
+      if (hintWrapperRef.current?.contains(e.target as Node)) return;
+      // Click landed outside — hide the hint panel
+      setShowHint(false);
+    }
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+    // Clean up the listener when the component unmounts to avoid memory leaks
+    return () => document.removeEventListener("mousedown", handleDocumentMouseDown);
+  }, []); // empty deps — listener is registered once and never needs to re-register
 
   // Message history — starts with placeholder examples
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
@@ -384,9 +405,9 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false }:
 
       {/* Panel header */}
       <div className="mb-4">
-        <h2 className="text-sm font-medium">Training &amp; Feedback Chatbot</h2>
+        <h2 className="text-sm font-medium">FinAgent</h2>  {/* updated heading */}
         <p className="text-xs text-muted-foreground mt-1">
-          Submit corrections · Upload training documents · Ask accounting questions
+          Run workflows · Ask questions · Submit corrections  {/* updated subtitle */}
         </p>
       </div>
 
@@ -463,14 +484,53 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false }:
 
         {/* Message input + Send */}
         <div className="flex gap-2">
-          <Textarea
-            placeholder="Ask a question or submit a correction (Ctrl+Enter to send)"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="resize-none min-h-[60px]"
-            disabled={isSending}
-          />
+          {/* Wrapper div holds both the hint panel and the textarea.
+              hintWrapperRef lets the outside-click handler (useEffect above)
+              distinguish clicks inside this area from clicks elsewhere. */}
+          <div className="relative flex-1" ref={hintWrapperRef}>
+
+            {/* ── Floating hint panel ──────────────────────────────────────────
+                Visible whenever showHint is true — set on textarea focus and
+                cleared only by the document mousedown handler when the user
+                clicks outside this wrapper. Remains visible while typing.
+                onMouseDown={e.preventDefault()} stops the mousedown event from
+                propagating to the document listener, so clicking inside the
+                panel never triggers the outside-click hide logic. */}
+            {showHint && (
+              <div
+                onMouseDown={(e) => e.preventDefault()} // prevent outside-click handler from firing on panel clicks
+                className="absolute bottom-full mb-1 left-0 right-0 z-10
+                            rounded-md border bg-popover px-3 py-2 shadow-md
+                            text-xs text-muted-foreground space-y-0.5 select-text"
+              >
+                {/* Header label */}
+                <p className="font-medium text-foreground mb-1">Try:</p>
+                {/* Agent workflow examples */}
+                <p>Agent — "Prepare financial statement for 2025"</p>
+                <p>Agent — "Run payroll for April 2026"</p>
+                <p>Agent — "Compute corporate tax for YA2026"</p>
+                <p>Agent — "Generate a 3 year financial projection"</p>
+                {/* RAG question example */}
+                <p>Question — "What is the CPF contribution rate for a PR in year 2?"</p>
+                {/* Correction examples */}
+                <p>Correction — "The depreciation for this client should use straight-line method"</p>
+                <p>Correction — "Update financial statements notes to include the going concern note"</p>
+              </div>
+            )}
+
+            {/* The textarea — placeholder removed; onFocus shows the hint panel.
+                No onBlur handler: hiding is handled by the document mousedown
+                listener instead, so the panel survives clicks within the wrapper. */}
+            <Textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowHint(true)}  // reveal hint panel when user enters the textarea
+              className="resize-none min-h-[60px] w-full"
+              disabled={isSending}
+            />
+          </div>
+
           <Button
             onClick={handleSend}
             disabled={isSending || !inputValue.trim()}

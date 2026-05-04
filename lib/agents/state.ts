@@ -54,6 +54,11 @@ export const AgentStateSchema = z.object({
   // Error bag keyed by node name; any node that throws writes here instead of crashing
   errors: z.record(z.string(), z.string()),
 
+  // Fetched-context bag keyed by node name — each node writes a plain-English
+  // description of what it loaded from Supabase so summaryNode can surface it
+  // to the user (e.g. which FS output was used, how many employees were loaded).
+  fetchedContext: z.record(z.string(), z.string()),
+
   // Final human-readable summary produced by the Summary node, posted to chat
   summary: z.string().optional(),
 });
@@ -153,6 +158,19 @@ export const GraphState = Annotation.Root({
   errors: Annotation<Record<string, string>>({
     reducer: (_prev: Record<string, string>, next: Record<string, string>) => next,
     default: () => ({}),
+  }),
+
+  // Fetched-context bag keyed by node name; starts empty.
+  // Each node that loads data from Supabase writes one entry here.
+  // Reducer merges incoming entries with existing ones so multiple nodes
+  // can each add their own entry without overwriting each other — same
+  // pattern as the errors field but for informational context, not errors.
+  fetchedContext: Annotation<Record<string, string>>({
+    reducer: (prev: Record<string, string>, next: Record<string, string>) => ({
+      ...prev,   // keep all entries written by earlier nodes
+      ...next,   // merge in the new entry from the current node
+    }),
+    default: () => ({}),  // starts empty; populated lazily as nodes run
   }),
 
   // Final summary text; undefined until the Summary node writes it
