@@ -23,7 +23,14 @@ export async function proxy(req: NextRequest) {
   // Public paths — always accessible without auth
   const isPublic =
     pathname.startsWith("/auth/") ||
-    pathname.startsWith("/api/auth/");
+    pathname.startsWith("/api/auth/") ||
+    // Internal agent routes — called server-to-server by LangGraph worker nodes;
+    // these requests carry no session cookie so they must be exempt from the auth
+    // redirect. Each route still validates the caller via verifySchemaAccess().
+    pathname === "/api/payroll/process" ||
+    pathname === "/api/financial-statements/generate" ||
+    pathname === "/api/financial-model/generate" ||
+    pathname === "/api/tax/agent";
 
   if (isPublic) return NextResponse.next();
 

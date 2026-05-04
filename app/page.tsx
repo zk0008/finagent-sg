@@ -29,6 +29,12 @@ export default function HomePage() {
   // Updates in real time as the user types in the Company Name field.
   const [schemaName, setSchemaName] = useState("techsoft_pte_ltd");
 
+  // Tracks whether the user has made an explicit client selection this session.
+  // Starts false so the agent cannot silently run against the default schema.
+  // Becomes true the first time WorkflowPanel calls onSchemaNameChange (either
+  // dropdown pick or company name typed), and stays true for the rest of the session.
+  const [clientSelected, setClientSelected] = useState(false);
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Top header bar */}
@@ -54,12 +60,15 @@ export default function HomePage() {
       <main className="flex flex-1 overflow-hidden flex-col md:flex-row">
         {/* Left: Workflow panel */}
         <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r overflow-y-auto">
-          <WorkflowPanel onSchemaNameChange={setSchemaName} />
+          <WorkflowPanel onSchemaNameChange={(name) => {
+            setSchemaName(name);        // update the active client schema
+            setClientSelected(true);    // mark that the user made an explicit selection
+          }} />
         </div>
 
         {/* Right: Chatbot panel */}
         <div className="w-full md:w-1/2 overflow-y-auto min-h-64 md:min-h-0">
-          <ChatbotPanel schemaName={schemaName} />
+          <ChatbotPanel schemaName={schemaName} clientSelected={clientSelected} />
         </div>
       </main>
 

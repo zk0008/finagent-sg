@@ -20,6 +20,13 @@
  * - schemaName is passed with every message so the server knows which client
  *   schema to write corrections to
  *
+ * V3-D (multi-agent routing):
+ * - detectAgentIntent() inspects each outgoing message before sending
+ * - If the message is a workflow goal, it is routed to POST /api/agent instead
+ *   of /api/chat; progress is rendered via AgentProgressPanel below the
+ *   message list (Option A — panel lives outside the messages array)
+ * - Standard chat messages are unaffected
+ *
  * Props:
  * - schemaName: string — the client schema name (e.g. "techsoft_pte_ltd")
  *   Derived from company name in WorkflowPanel and passed down.
@@ -33,6 +40,8 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { detectAgentIntent } from "@/lib/agents/intentDetector"; // rule-based workflow intent detector
+import { AgentProgressPanel } from "@/components/AgentProgressPanel"; // per-node progress UI
 
 // Message types displayed in the chat area
 type MessageRole = "user" | "assistant" | "system";
@@ -41,9 +50,20 @@ interface ChatMessage {
   content: string;
 }
 
+// One entry in the agent node list — mirrors AgentProgressPanel's NodeEntry type
+type NodeStatus = "pending" | "running" | "complete" | "error";
+interface AgentNodeEntry {
+  name:   string;
+  status: NodeStatus;
+  error?: string;
+}
+
 // Props
 interface ChatbotPanelProps {
   schemaName?: string;
+  // True only after the user has explicitly picked a client from the dropdown.
+  // False on initial page load even though schemaName has a default value.
+  clientSelected?: boolean;
 }
 
 // Initial messages shown on load — Phase 0 placeholder examples
@@ -60,7 +80,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
+export function ChatbotPanel({ schemaName = "default", clientSelected = false }: ChatbotPanelProps) {
   const { data: session } = useSession();
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
@@ -75,6 +95,22 @@ export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
 
   // Sending state — disables Send button while the API call is in flight
   const [isSending, setIsSending] = useState(false);
+
+  // ── Agent run state (V3-D) ─────────────────────────────────────────────────
+  // Populated only when detectAgentIntent() routes the message to /api/agent.
+  // Reset to initial values each time the user sends a new message.
+
+  // Ordered list of nodes the graph will visit; statuses update as SSE events arrive
+  const [agentNodes, setAgentNodes] = useState<AgentNodeEntry[]>([]);
+
+  // Populated by the validation:missing SSE event if required inputs are absent
+  const [agentMissingInputs, setAgentMissingInputs] = useState<string[]>([]);
+
+  // Populated by the graph:complete SSE event — plain-English run summary
+  const [agentSummary, setAgentSummary] = useState<string | null>(null);
+
+  // True while the SSE stream from /api/agent is still open
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
 
   // Hidden file input — triggered programmatically when the button is clicked
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -139,18 +175,175 @@ export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
 
   /**
    * Handles Send button click.
-   * POSTs the message to /api/chat with the current schemaName.
-   * Displays the user message immediately, then the assistant reply when it arrives.
+   *
+   * First checks the message with detectAgentIntent(). If the message is a
+   * workflow goal, routes it to POST /api/agent and consumes the SSE stream
+   * to drive AgentProgressPanel. Otherwise falls through to the existing
+   * POST /api/chat RAG chatbot — no change to that path.
    */
   async function handleSend() {
     const message = inputValue.trim();
     if (!message || isSending) return;
 
-    // Show user message immediately
+    // Show the user's message in the chat immediately regardless of route
     appendMessage("user", message);
     setInputValue("");
     setIsSending(true);
 
+    // Reset all agent state before each new message so stale results don't show
+    setAgentNodes([]);
+    setAgentMissingInputs([]);
+    setAgentSummary(null);
+    setIsAgentRunning(false);
+
+    // ── Intent check ────────────────────────────────────────────────────────
+    const intent = detectAgentIntent(message);
+
+    if (intent.isAgentGoal) {
+      // ── Client selection guard ───────────────────────────────────────────
+      // The agent must never assume which client to run against. If the user
+      // has not explicitly selected a client from the dropdown, surface a
+      // missing-input prompt instead of silently using the default schema.
+      if (!clientSelected) {
+        setAgentMissingInputs(["Client — please select a client from the dropdown"]);
+        setIsSending(false);  // re-enable the Send button immediately
+        return;               // do not call /api/agent
+      }
+
+      // ── Agent path: route to /api/agent and stream SSE progress ──────────
+
+      // Pre-populate the node list with every workflow that will run, in graph order.
+      // Nodes start as "pending"; statuses flip as SSE events arrive.
+      const initialNodes: AgentNodeEntry[] = [
+        { name: "validationNode", status: "pending" },
+        { name: "managerNode",    status: "pending" },
+        // Worker nodes — only include those flagged true by the intent detector
+        ...(intent.runFS             ? [{ name: "financialStatementNode", status: "pending" as NodeStatus }] : []),
+        ...(intent.runPayroll        ? [{ name: "payrollNode",            status: "pending" as NodeStatus }] : []),
+        ...(intent.runTax            ? [{ name: "taxNode",                status: "pending" as NodeStatus }] : []),
+        ...(intent.runFinancialModel ? [{ name: "financialModelNode",     status: "pending" as NodeStatus }] : []),
+        { name: "summaryNode", status: "pending" },
+      ];
+      setAgentNodes(initialNodes);
+      setIsAgentRunning(true);
+
+      try {
+        // POST to the agent route with the goal + clientId + all extracted fields
+        const response = await fetch("/api/agent", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            goal:                  message,
+            clientId:              schemaName,       // schemaName is the clientId slug
+            runFS:                 intent.runFS,
+            runPayroll:            intent.runPayroll,
+            runTax:                intent.runTax,
+            runFinancialModel:     intent.runFinancialModel,
+            financialYear:         intent.financialYear,
+            payrollMonth:          intent.payrollMonth,
+            payrollYear:           intent.payrollYear,
+            yearOfAssessment:      intent.yearOfAssessment,
+            projectionPeriodYears: intent.projectionPeriodYears,
+          }),
+        });
+
+        if (!response.ok || !response.body) {
+          // Non-2xx before the stream even opens — show as a chat error
+          appendMessage("system", `❌ Agent error: HTTP ${response.status}`);
+          setIsAgentRunning(false);
+          return;
+        }
+
+        // Read the SSE stream line-by-line using a text decoder
+        const reader  = response.body.getReader();
+        const decoder = new TextDecoder();
+        let   buffer  = "";   // accumulates partial SSE lines between chunks
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;  // stream closed by server after graph:complete or graph:error
+
+          // Append the decoded chunk to our line buffer
+          buffer += decoder.decode(value, { stream: true });
+
+          // SSE lines are separated by "\n\n"; split and process each complete event
+          const parts = buffer.split("\n\n");
+          // The last element may be an incomplete line — keep it in the buffer
+          buffer = parts.pop() ?? "";
+
+          for (const part of parts) {
+            // Each part is "data: <json>" — strip the "data: " prefix
+            const line = part.trim();
+            if (!line.startsWith("data: ")) continue;
+            const jsonStr = line.slice("data: ".length);
+
+            let payload: { event: string; data: Record<string, unknown> };
+            try {
+              payload = JSON.parse(jsonStr);
+            } catch {
+              continue;  // skip malformed lines
+            }
+
+            const { event, data } = payload;
+
+            if (event === "node:started") {
+              // Mark the named node as running — spinner appears in the panel
+              const nodeName = data.node as string;
+              setAgentNodes((prev) =>
+                prev.map((n) =>
+                  n.name === nodeName ? { ...n, status: "running" } : n
+                )
+              );
+
+            } else if (event === "node:complete") {
+              // Node finished cleanly — flip it to complete
+              const nodeName = data.node as string;
+              setAgentNodes((prev) =>
+                prev.map((n) =>
+                  n.name === nodeName ? { ...n, status: "complete" } : n
+                )
+              );
+
+            } else if (event === "node:error") {
+              // Node failed — record the error message alongside the status
+              const nodeName  = data.node as string;
+              const errorMsg  = data.error as string;
+              setAgentNodes((prev) =>
+                prev.map((n) =>
+                  n.name === nodeName
+                    ? { ...n, status: "error", error: errorMsg }
+                    : n
+                )
+              );
+
+            } else if (event === "validation:missing") {
+              // Required inputs were missing — panel will show the prompt message
+              setAgentMissingInputs(data.fields as string[]);
+
+            } else if (event === "graph:complete") {
+              // Graph finished — store the summary and close the running state
+              setAgentSummary((data.summary as string) || null);
+              setIsAgentRunning(false);
+
+            } else if (event === "graph:error") {
+              // Unhandled error in graph execution — show in chat as a system message
+              appendMessage("system", `❌ Agent error: ${data.error as string}`);
+              setIsAgentRunning(false);
+            }
+          }
+        }
+
+      } catch {
+        appendMessage("system", "❌ Network error — could not reach /api/agent.");
+        setIsAgentRunning(false);
+      } finally {
+        setIsSending(false);
+      }
+
+      return;  // do not fall through to the standard chat route
+    }
+
+    // ── Standard chat path (unchanged) ──────────────────────────────────────
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -225,6 +418,23 @@ export function ChatbotPanel({ schemaName = "default" }: ChatbotPanelProps) {
             </div>
           </div>
         ))}
+
+        {/* ── Agent progress panel (V3-D) ────────────────────────────────────
+            Rendered below all chat bubbles when an agent run is active or just
+            finished. Stays visible until the user sends the next message, which
+            resets all agent state back to initial values (see handleSend).
+            Option A: panel lives outside the messages array — ChatMessage type
+            is unchanged; AgentProgressPanel is a sibling after the .map(). */}
+        {/* Also render when missingInputs is set — covers the no-client-selected
+            guard which sets missingInputs without starting an agent run */}
+        {(isAgentRunning || agentSummary !== null || agentMissingInputs.length > 0) && (
+          <AgentProgressPanel
+            nodes={agentNodes}
+            missingInputs={agentMissingInputs}
+            summary={agentSummary}
+            isRunning={isAgentRunning}
+          />
+        )}
       </div>
 
       {/* ── Input area ── */}
