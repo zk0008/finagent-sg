@@ -157,6 +157,7 @@ These are confirmed gaps found during smoke testing. They do not affect correctn
 | Output transparency | RESOLVED — Nodes write fetchedContext entries describing what Supabase data was fetched (fiscal year, employee count, FS output date). summaryNode appends a Data used section to the summary when fetchedContext is non-empty. |
 | Placeholder chat text | RESOLVED — Floating hint panel added to chat input showing example commands for all three modes (agent, question, correction). Panel stays visible while typing, hides on outside click, text is selectable. |
 | Chat UI polish | RESOLVED — Dummy placeholder conversation removed. Welcome message added. Chatbot heading updated to "FinAgent". Subtitle updated to "Run workflows · Ask questions · Submit corrections". |
+| Hard constraints and optional inputs advisory | RESOLVED — validationNode updated with FS prior-run Supabase check. summaryNode appends per-workflow optional inputs advisory after each completed workflow. accountingProfit and revenue confirmed not needed — auto-derived server-side from classified_accounts. |
 | Download capability | After agent completes a workflow, user needs to download outputs (payslips, PDFs). Currently no download UI is triggered by agent-generated runs |
 | Payroll history view | Agent-generated payroll runs are saved to Supabase but the PayrollWorkflow UI has no past-runs loader — downloads require in-session state |
 
@@ -193,5 +194,5 @@ After each agent run, write a structured markdown note to a local Obsidian vault
 - [x] V3-C — Agent API route and SSE streaming
 - [x] V3-D — Chat UI integration
 - [x] V3-E — PHASES_V3.md
-- [x] Known gaps — placeholder text, chat UI polish, post-completion guidance, output transparency (download capability and payroll history view remain open)
+- [x] Known gaps — placeholder text, chat UI polish, post-completion guidance, output transparency (download capability — left panel auto-load — remains open)
 - [ ] V3.1 — Obsidian knowledge store (local dev only)

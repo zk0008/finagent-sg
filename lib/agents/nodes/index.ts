@@ -50,12 +50,15 @@ function formatSavedDate(isoString: string): string {
 // ─── Node 1: Validation Node ─────────────────────────────────────────────────
 
 /**
- * Pure TypeScript guard — no LLM call, no external fetch.
- * Checks that all inputs required by the flagged workflows are present in state.
+ * Pure TypeScript guard — Supabase read only, no LLM call.
+ * Checks that all inputs required by the flagged workflows are present in state,
+ * and for the FS workflow also verifies that a prior UI-run FS output exists in
+ * Supabase for the requested fiscal year (the agent cannot parse Excel, so it
+ * depends on the user having run FS generation from the UI at least once).
  * Populates state.missingInputs if anything is absent; graph routes to END if so.
  * If everything is present, returns unchanged state and graph continues to manager.
  */
-export function validationNode(state: State): NodeReturn {
+export async function validationNode(state: State): Promise<NodeReturn> {
   const missing: string[] = [];
 
   // clientId must always be present — it scopes all Supabase queries
@@ -81,6 +84,54 @@ export function validationNode(state: State): NodeReturn {
 
   if (state.runFinancialModel && !state.projectionPeriodYears) {
     missing.push("projectionPeriodYears");  // Model engine needs how many years to project
+  }
+
+  // ── FS hard constraint: verify a prior UI-run FS output exists in Supabase ──
+  // This check only runs when:
+  //   (a) runFS is true, AND
+  //   (b) financialYear is already present (otherwise "financialYear" is already in
+  //       missing and there is no point querying Supabase with an undefined year), AND
+  //   (c) clientId is present (Supabase queries are scoped to the client schema).
+  // The agent cannot parse an Excel trial balance — it re-runs AI generation using
+  // classified_accounts saved by a prior UI-initiated run. If no such output exists,
+  // dispatch would fail inside financialStatementNode with a confusing HTTP 400.
+  // Blocking here gives the user a clear, actionable message before any worker runs.
+  if (state.runFS && state.financialYear && state.clientId) {
+    // Step 1: find the fiscal_years row whose end_date falls in the requested year.
+    // Mirror the exact query used by /api/financial-statements/generate/route.ts.
+    const { data: fyRows } = await supabase
+      .schema(state.clientId)
+      .from("fiscal_years")
+      .select("id")
+      .gte("end_date", `${state.financialYear}-01-01`)   // end date ≥ Jan 1 of the year
+      .lte("end_date", `${state.financialYear}-12-31`);  // end date ≤ Dec 31 of the year
+
+    const fyRow = fyRows && fyRows.length > 0 ? fyRows[0] : null;
+
+    if (!fyRow) {
+      // No fiscal year row at all — FS has never been set up for this calendar year
+      missing.push(
+        `Financial Statement data for FY${state.financialYear} — please run the Financial Statement workflow manually first to upload your trial balance, then try again`
+      );
+    } else {
+      // Step 2: check that at least one FS output row exists for this fiscal year.
+      // Mirror the query from the wrapper route: output_type + fiscal_year_id match.
+      const { data: outputRow } = await supabase
+        .schema(state.clientId)
+        .from("outputs")
+        .select("id")
+        .eq("output_type", "financial_statements")
+        .eq("fiscal_year_id", (fyRow as { id: string }).id)  // must match the specific FY
+        .limit(1)
+        .maybeSingle();  // returns null (not an error) when no row exists
+
+      if (!outputRow) {
+        // Fiscal year exists but no FS output has been saved — UI run required first
+        missing.push(
+          `Financial Statement data for FY${state.financialYear} — please run the Financial Statement workflow manually first to upload your trial balance, then try again`
+        );
+      }
+    }
   }
 
   if (missing.length > 0) {
@@ -587,6 +638,46 @@ export function summaryNode(state: State): NodeReturn {
     const bulletLines = contextEntries.map(([, description]) => `- ${description}`);
     // Append as a separate block after the workflow summary lines
     summaryText += "\nData used:\n" + bulletLines.join("\n");
+  }
+
+  // ── Append optional inputs advisories for each completed workflow ─────────
+  // An advisory only appears when the workflow completed successfully (result present).
+  // Advisories are appended in fixed order: FS → Payroll → Tax → Financial Model.
+  // Each advisory block informs the user which inputs the agent defaulted and
+  // where to go in the UI to adjust them if needed.
+
+  if (state.fsResult) {
+    // FS ran: going concern notes and depreciation method changes require Correction mode
+    summaryText +=
+      "\n\nOptional inputs not applied:\n" +
+      "- Going concern notes or depreciation method changes — submit via Correction mode in this chat";
+  }
+
+  if (state.payrollResult) {
+    // Payroll ran: agent defaults all AW/allowances/deductions/ytd_ow to zero
+    summaryText +=
+      "\n\nOptional inputs not applied:\n" +
+      "- Additional wages (bonus, commission), allowances, deductions, or " +
+      "YTD ordinary wages — go to Payroll in the left panel to adjust before finalising";
+  }
+
+  if (state.taxResult) {
+    // Tax ran: agent hardcodes is_new_startup=false and tax_adjustments=[]
+    summaryText +=
+      "\n\nOptional inputs not applied:\n" +
+      "- Tax adjustments (capital allowances, motor vehicle expenses, " +
+      "donations, dividend income) — not applied; go to Corporate Tax in the left panel to add adjustments\n" +
+      "- New start-up exemption — defaulted to Partial Tax Exemption; " +
+      "go to Corporate Tax in the left panel to change if your company qualifies";
+  }
+
+  if (state.financialModelResult) {
+    // Financial model ran: agent uses conservative defaults; projections are not saved
+    summaryText +=
+      "\n\nOptional inputs not applied:\n" +
+      "- Growth rate assumptions — defaulted to conservative SG defaults " +
+      "(5% revenue growth, 3% COGS growth, 3% OPEX growth); go to Financial Model in the left panel to adjust\n" +
+      "- Projections are not saved — go to Financial Model in the left panel to review and save your model";
   }
 
   return { summary: summaryText };
