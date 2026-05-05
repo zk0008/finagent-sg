@@ -158,7 +158,7 @@ These are confirmed gaps found during smoke testing. They do not affect correctn
 | Placeholder chat text | RESOLVED — Floating hint panel added to chat input showing example commands for all three modes (agent, question, correction). Panel stays visible while typing, hides on outside click, text is selectable. |
 | Chat UI polish | RESOLVED — Dummy placeholder conversation removed. Welcome message added. Chatbot heading updated to "FinAgent". Subtitle updated to "Run workflows · Ask questions · Submit corrections". |
 | Hard constraints and optional inputs advisory | RESOLVED — validationNode updated with FS prior-run Supabase check. summaryNode appends per-workflow optional inputs advisory after each completed workflow. accountingProfit and revenue confirmed not needed — auto-derived server-side from classified_accounts. |
-| Download capability | After agent completes a workflow, user needs to download outputs (payslips, PDFs). Currently no download UI is triggered by agent-generated runs |
+| Download capability | RESOLVED — Agent signals completed runs via completedRuns payload in graph:complete SSE event. Each left panel component auto-loads the agent-generated run from Supabase and jumps to results/download view. Three new GET routes created for FS, payroll, and tax rehydration. Financial Model re-calls generate route with agent's projectionPeriodYears. Two bugs fixed post-implementation: projectionPeriodYears hardcoded to 3 in auto-load (fixed), tax_adjustments stored as JSON string instead of JSONB array causing 500 crash (fixed). |
 | Payroll history view | Agent-generated payroll runs are saved to Supabase but the PayrollWorkflow UI has no past-runs loader — downloads require in-session state |
 
 ---
@@ -194,5 +194,5 @@ After each agent run, write a structured markdown note to a local Obsidian vault
 - [x] V3-C — Agent API route and SSE streaming
 - [x] V3-D — Chat UI integration
 - [x] V3-E — PHASES_V3.md
-- [x] Known gaps — placeholder text, chat UI polish, post-completion guidance, output transparency (download capability — left panel auto-load — remains open)
+- [x] Known gaps — placeholder text, chat UI polish, post-completion guidance, output transparency, download capability — left panel auto-load
 - [ ] V3.1 — Obsidian knowledge store (local dev only)

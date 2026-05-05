@@ -89,6 +89,10 @@ type PayrollWorkflowProps = {
   companyName: string;
   entityId: string;
   uen?: string;
+  // Run IDs produced by the most recent agent graph execution.
+  // When an entry with workflow === "payroll" is present, the component fetches
+  // the saved payroll run from Supabase and jumps to Step 3 (download) automatically.
+  agentCompletedRuns?: Array<{ workflow: string; runId: string }>;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -98,6 +102,7 @@ export function PayrollWorkflow({
   companyName,
   entityId,
   uen = "202500001A",
+  agentCompletedRuns = [],
 }: PayrollWorkflowProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -172,6 +177,35 @@ export function PayrollWorkflow({
       }))
     );
   }, [employees]);
+
+  // ── Payroll agent auto-load ────────────────────────────────────────────────
+  // When the agent completes a payroll run, agentCompletedRuns contains an entry
+  // with workflow === "payroll" and a runId pointing to the payroll_runs row UUID.
+  // This effect reconstructs PayrollResult[] from the saved payslips and jumps to
+  // Step 3 (download) so the user can immediately download payslips / CPF CSV.
+  // Silently does nothing if the fetch fails — the user can still run payroll manually.
+  useEffect(() => {
+    const payEntry = agentCompletedRuns.find((r) => r.workflow === "payroll");
+    if (!payEntry) return;
+
+    fetch(`/api/payroll/run/${payEntry.runId}?schemaName=${encodeURIComponent(schemaName)}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: {
+        payroll_month: string;
+        payslip_ids:   Record<string, string>;
+        results:       PayrollResult[];
+      } | null) => {
+        if (!data) return;
+        setPayrollRunId(payEntry.runId);          // enable Finalise + journal download
+        setPayrollMonth(data.payroll_month);       // display the correct run month
+        setPayslipIds(data.payslip_ids);           // map employee_id → payslip_id for PDF download
+        setPayrollResults(data.results);           // CPF breakdown rows for the results table
+        setStep(3);                                // jump directly to download step
+      })
+      .catch(() => {/* non-fatal — user can run payroll manually */});
+  // Re-run when the agent produces a new payroll run or the active schema changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentCompletedRuns, schemaName]);
 
   // ── Employee form helpers ──────────────────────────────────────────────────
 

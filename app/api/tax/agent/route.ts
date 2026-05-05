@@ -169,7 +169,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       year_of_assessment:   result.year_of_assessment,
       form_type:            result.form_type,
       accounting_profit:    result.accounting_profit,
-      tax_adjustments:      JSON.stringify([]),        // empty — stored for audit trail
+      tax_adjustments:      [],                         // empty JSONB array — stored for audit trail
       chargeable_income:    result.chargeable_income,
       exemption_scheme:     result.exemption_scheme,
       tax_before_rebate:    result.gross_tax,

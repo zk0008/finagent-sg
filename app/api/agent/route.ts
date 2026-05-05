@@ -131,6 +131,25 @@ export async function POST(req: NextRequest): Promise<Response> {
       // Accumulate the final summary as it comes out of summaryNode
       let finalSummary: string | undefined;
 
+      // ── Run ID accumulators ────────────────────────────────────────────
+      // Each worker node writes its output to a different state field.
+      // We pick the IDs out of the streaming chunks so we can include them in
+      // the graph:complete event as `completedRuns`, which the UI uses to
+      // auto-load the left-panel workflow component for each completed workflow.
+      let fsRunId:  string | undefined;  // outputs row UUID from financialStatementNode
+      let payRunId: string | undefined;  // payroll_runs row UUID from payrollNode
+      let taxRunId: string | undefined;  // tax_computations row UUID from taxNode
+      let fmRunId:  string | undefined;  // outputs row UUID used by financialModelNode
+
+      // Tracks the projection years the agent actually ran with — set by managerNode
+      // (which overwrites the value from initialState) and falls back to
+      // initialState.projectionPeriodYears (set from the intent detector before invocation).
+      // Passed to ModelWorkflow via completedRuns so auto-load regenerates the same length.
+      let agentProjectionYears: number | undefined =
+        typeof initialState.projectionPeriodYears === "number"
+          ? initialState.projectionPeriodYears
+          : undefined;
+
       try {
         // ── Invoke the graph in streaming mode ──────────────────────────
         // streamMode "updates" → each chunk is { nodeName: partialStateUpdate }
@@ -181,12 +200,65 @@ export async function POST(req: NextRequest): Promise<Response> {
           if (nodeUpdate?.summary) {
             finalSummary = nodeUpdate.summary;
           }
+
+          // ── Pick up run IDs per node for the completedRuns payload ──────
+          // Each worker node writes its result to a different state field.
+          // Safe casts: these fields are typed as `object | undefined` in GraphState.
+          if (nodeName === "financialStatementNode" && nodeUpdate?.fsOutputId) {
+            // financialStatementNode writes fsOutputId directly into state
+            fsRunId = nodeUpdate.fsOutputId as string;
+          }
+          if (nodeName === "payrollNode") {
+            // payrollNode.payrollResult is the full /api/payroll/process response:
+            // { payroll_run_id, payroll_month, status, results, payslip_ids }
+            const pr = nodeUpdate?.payrollResult as Record<string, unknown> | undefined;
+            if (pr?.payroll_run_id) payRunId = pr.payroll_run_id as string;
+          }
+          if (nodeName === "taxNode") {
+            // taxNode.taxResult is the /api/tax/agent response:
+            // { result: TaxComputationResult, computation_id: string | null }
+            const tr = nodeUpdate?.taxResult as Record<string, unknown> | undefined;
+            if (tr?.computation_id) taxRunId = tr.computation_id as string;
+          }
+          if (nodeName === "financialModelNode") {
+            // financialModelNode.financialModelResult is the /api/financial-model/generate response:
+            // { base_case, best_case, worst_case, source_output_id }
+            const mr = nodeUpdate?.financialModelResult as Record<string, unknown> | undefined;
+            if (mr?.source_output_id) fmRunId = mr.source_output_id as string;
+          }
+
+          // Track projectionPeriodYears whenever a node writes it to state.
+          // managerNode sets this from GPT-4.1's extraction of the user's goal;
+          // it overwrites the value from initialState (which came from the intent detector).
+          if (typeof nodeUpdate?.projectionPeriodYears === "number") {
+            agentProjectionYears = nodeUpdate.projectionPeriodYears;
+          }
         }
+
+        // ── Build completedRuns array from accumulated IDs ─────────────
+        // Only include workflows that produced a saved/usable run ID.
+        // The UI's auto-load useEffects filter this array by workflow key.
+        // financialModel entry also carries projectionPeriodYears so ModelWorkflow
+        // regenerates the same number of projection years the agent actually ran.
+        const completedRuns: Array<{
+          workflow:              string;
+          runId:                 string;
+          projectionPeriodYears?: number;  // only present on financialModel entries
+        }> = [];
+        if (fsRunId)  completedRuns.push({ workflow: "fs",             runId: fsRunId  });
+        if (payRunId) completedRuns.push({ workflow: "payroll",        runId: payRunId });
+        if (taxRunId) completedRuns.push({ workflow: "tax",            runId: taxRunId });
+        if (fmRunId)  completedRuns.push({
+          workflow:              "financialModel",
+          runId:                 fmRunId,
+          // Use the value tracked from state; fall back to 3 if never set
+          projectionPeriodYears: typeof agentProjectionYears === "number" ? agentProjectionYears : 3,
+        });
 
         // ── Graph finished — emit the final completion event ─────────────
         send({
           event: "graph:complete",
-          data:  { summary: finalSummary ?? "" },
+          data:  { summary: finalSummary ?? "", completedRuns },
         });
 
         // Record the run outcome in Langfuse

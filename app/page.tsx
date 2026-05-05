@@ -35,6 +35,19 @@ export default function HomePage() {
   // dropdown pick or company name typed), and stays true for the rest of the session.
   const [clientSelected, setClientSelected] = useState(false);
 
+  // Stores run IDs produced by the most recent agent graph execution.
+  // Each entry tells a workflow component which Supabase row to auto-load.
+  // Reset to [] whenever the active client changes (different client = stale run IDs).
+  const [agentCompletedRuns, setAgentCompletedRuns] = useState<
+    Array<{ workflow: string; runId: string }>
+  >([]);
+
+  // Called by ChatbotPanel when the agent graph:complete SSE event fires.
+  // Filters out any entries with an empty runId (failed nodes return no ID).
+  function handleAgentComplete(runs: Array<{ workflow: string; runId: string }>) {
+    setAgentCompletedRuns(runs.filter((r) => !!r.runId));
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Top header bar */}
@@ -60,15 +73,23 @@ export default function HomePage() {
       <main className="flex flex-1 overflow-hidden flex-col md:flex-row">
         {/* Left: Workflow panel */}
         <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r overflow-y-auto">
-          <WorkflowPanel onSchemaNameChange={(name) => {
-            setSchemaName(name);        // update the active client schema
-            setClientSelected(true);    // mark that the user made an explicit selection
-          }} />
+          <WorkflowPanel
+            onSchemaNameChange={(name) => {
+              setSchemaName(name);           // update the active client schema
+              setClientSelected(true);       // mark that the user made an explicit selection
+              setAgentCompletedRuns([]);     // stale run IDs from a previous client are no longer valid
+            }}
+            agentCompletedRuns={agentCompletedRuns}  // signals which workflow to auto-load
+          />
         </div>
 
         {/* Right: Chatbot panel */}
         <div className="w-full md:w-1/2 overflow-y-auto min-h-64 md:min-h-0">
-          <ChatbotPanel schemaName={schemaName} clientSelected={clientSelected} />
+          <ChatbotPanel
+            schemaName={schemaName}
+            clientSelected={clientSelected}
+            onAgentComplete={handleAgentComplete}  // called when graph:complete fires with completedRuns
+          />
         </div>
       </main>
 

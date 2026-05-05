@@ -64,6 +64,11 @@ interface TaxWorkflowProps {
   fiscalYearId: string;
   uen: string;
   fyeDate: string;     // YYYY-MM-DD
+  // Run IDs produced by the most recent agent graph execution.
+  // When an entry with workflow === "tax" is present, the component fetches the
+  // saved tax_computations row and rehydrates it into the full TaxComputationResult,
+  // then jumps to Step 3 (results/download) automatically.
+  agentCompletedRuns?: Array<{ workflow: string; runId: string }>;
 }
 
 // Latest FS metadata returned by GET /api/model/latest-fs
@@ -101,6 +106,7 @@ export function TaxWorkflow({
   fiscalYearId,
   uen,
   fyeDate,
+  agentCompletedRuns = [],
 }: TaxWorkflowProps) {
   // Step: 1 = Setup, 2 = Adjustments, 3 = Results
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -156,6 +162,29 @@ export function TaxWorkflow({
       .catch(() => { /* non-fatal — user can enter values manually */ })
       .finally(() => setFsMetaLoading(false));
   }, [schemaName]);
+
+  // ── Tax agent auto-load ───────────────────────────────────────────────────
+  // When the agent completes a tax run, agentCompletedRuns contains an entry
+  // with workflow === "tax" and a runId pointing to the tax_computations row UUID.
+  // This effect fetches the rehydrated TaxComputationResult from the GET route and
+  // jumps to Step 3 (results/download) so the user can immediately view and save.
+  // Silently does nothing if the fetch fails — the user can still run tax manually.
+  useEffect(() => {
+    const taxEntry = agentCompletedRuns.find((r) => r.workflow === "tax");
+    if (!taxEntry) return;
+
+    fetch(`/api/tax/agent/${taxEntry.runId}?schemaName=${encodeURIComponent(schemaName)}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: { result: TaxComputationResult } | null) => {
+        if (!data?.result) return;
+        setTaxResult(data.result);        // full rehydrated TaxComputationResult
+        setComputationId(taxEntry.runId); // UUID of the saved tax_computations row
+        setStep(3);                       // jump directly to results step
+      })
+      .catch(() => {/* non-fatal — user can run tax manually */});
+  // Re-run when the agent produces a new tax run or the active schema changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentCompletedRuns, schemaName]);
 
   // ── Step 1: validate before proceeding ───────────────────────────────────
   function canProceedToStep2(): boolean {

@@ -48,6 +48,17 @@ export type ModelWorkflowProps = {
   entityId:      string;
   fiscalYearId:  string | null;
   isAuditExempt: boolean;
+  // Run IDs produced by the most recent agent graph execution.
+  // When an entry with workflow === "financialModel" is present, the component
+  // re-calls /api/financial-model/generate using the agent's fsOutputId and
+  // populates the results section automatically without requiring user interaction.
+  // projectionPeriodYears is included so the auto-load regenerates the same number
+  // of years the agent actually ran — not the UI default of 3.
+  agentCompletedRuns?: Array<{
+    workflow:              string;
+    runId:                 string;
+    projectionPeriodYears?: number;  // only present on financialModel entries
+  }>;
 };
 
 // ── Internal types ────────────────────────────────────────────────────────────
@@ -219,6 +230,7 @@ export function ModelWorkflow({
   entityId,
   fiscalYearId,
   isAuditExempt,
+  agentCompletedRuns = [],
 }: ModelWorkflowProps) {
 
   // ── Step 1: Setup ──────────────────────────────────────────────────────────
@@ -285,6 +297,52 @@ export function ModelWorkflow({
       .catch(() => setNoFS(true))
       .finally(() => setIsFetchingFS(false));
   }, [schemaName]);
+
+  // ── Financial model agent auto-load ────────────────────────────────────────
+  // When the agent completes a financial model run, agentCompletedRuns contains
+  // an entry with workflow === "financialModel" and a runId equal to the
+  // source_output_id (the outputs row the agent used as the FS base).
+  // This effect re-calls /api/financial-model/generate with that fsOutputId so
+  // the same projections are available in the UI without requiring user interaction.
+  //
+  // Guard: latestFS must be loaded first because the render at line 566 uses
+  // `latestFS!.base_year` (non-null assertion) to compute projection year labels.
+  // With latestFS in the dep array, the effect retries automatically once it loads.
+  // Silently does nothing if the fetch fails — the user can still run manually.
+  useEffect(() => {
+    const modelEntry = agentCompletedRuns.find((r) => r.workflow === "financialModel");
+    if (!modelEntry) return;
+    if (!latestFS) return;  // wait for the FS info load before rendering year labels
+
+    fetch("/api/financial-model/generate", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId:              schemaName,                                           // schema slug used throughout the agent layer
+        projectionPeriodYears: modelEntry.projectionPeriodYears ?? projectionYears, // use agent's actual years; fall back to UI state
+        fsOutputId:            modelEntry.runId,                                    // the outputs row the agent used as base
+      }),
+    })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: {
+        base_case:        ProjectedFS[];
+        best_case:        ProjectedFS[];
+        worst_case:       ProjectedFS[];
+        source_output_id: string;
+      } | null) => {
+        if (!data) return;
+        setResults({
+          base_case:  data.base_case,
+          best_case:  data.best_case,
+          worst_case: data.worst_case,
+        });
+        setSourceOutputId(data.source_output_id);  // links save → correct FS output row
+      })
+      .catch(() => {/* non-fatal — user can run the model manually */});
+  // latestFS is included so the effect retries once the FS info has loaded.
+  // agentCompletedRuns triggers when the agent finishes; schemaName for client changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentCompletedRuns, latestFS, schemaName]);
 
   // ── Suggest assumptions ────────────────────────────────────────────────────
   async function handleSuggest(): Promise<void> {

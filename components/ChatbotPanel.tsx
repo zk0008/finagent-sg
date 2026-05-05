@@ -64,6 +64,10 @@ interface ChatbotPanelProps {
   // True only after the user has explicitly picked a client from the dropdown.
   // False on initial page load even though schemaName has a default value.
   clientSelected?: boolean;
+  // Called when the agent graph:complete SSE event fires with a completedRuns array.
+  // Passed up to page.tsx, which stores the runs and passes them to WorkflowPanel
+  // so each workflow component can auto-load its agent-generated result.
+  onAgentComplete?: (runs: Array<{ workflow: string; runId: string }>) => void;
 }
 
 // Single welcome message shown on load — replaces the old dummy conversation
@@ -75,7 +79,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-export function ChatbotPanel({ schemaName = "default", clientSelected = false }: ChatbotPanelProps) {
+export function ChatbotPanel({ schemaName = "default", clientSelected = false, onAgentComplete }: ChatbotPanelProps) {
   const { data: session } = useSession();
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
@@ -345,6 +349,12 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false }:
               // Graph finished — store the summary and close the running state
               setAgentSummary((data.summary as string) || null);
               setIsAgentRunning(false);
+              // Pass completedRuns up to page.tsx so WorkflowPanel can auto-load
+              // the left-panel workflow component for each completed workflow.
+              // completedRuns is present only when at least one worker node succeeded.
+              if (Array.isArray(data.completedRuns) && data.completedRuns.length > 0) {
+                onAgentComplete?.(data.completedRuns as Array<{ workflow: string; runId: string }>);
+              }
 
             } else if (event === "graph:error") {
               // Unhandled error in graph execution — show in chat as a system message

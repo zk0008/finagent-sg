@@ -60,9 +60,12 @@ const INITIAL_STEPS: ProgressStep[] = [
 
 interface WorkflowPanelProps {
   onSchemaNameChange?: (schemaName: string) => void;
+  // Run IDs produced by the most recent agent graph execution.
+  // Each entry tells a workflow component which Supabase row to auto-load and display.
+  agentCompletedRuns?: Array<{ workflow: string; runId: string }>;
 }
 
-export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
+export function WorkflowPanel({ onSchemaNameChange, agentCompletedRuns = [] }: WorkflowPanelProps = {}) {
   const [selectedTask, setSelectedTask] = useState<Task>("financial_statements");
 
   // ── Client selector state (Phase 6) ───────────────────────────────────────
@@ -126,6 +129,33 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
   const [fsOutput, setFsOutput] = useState<Record<string, unknown> | null>(null);
   const [outputReady, setOutputReady] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // ── FS agent auto-load ─────────────────────────────────────────────────────
+  // When the agent completes an FS run, agentCompletedRuns will contain an entry
+  // with workflow === "fs" and a runId pointing to the outputs row UUID.
+  // This effect fetches the stored structured_data and activates the download
+  // buttons without requiring the user to re-run FS generation from the UI.
+  // Silently does nothing if the fetch fails — the user can still run FS manually.
+  useEffect(() => {
+    const fsEntry = agentCompletedRuns.find((r) => r.workflow === "fs");
+    if (!fsEntry) return;
+
+    // Derive the schema name from companyName (same formula used everywhere else)
+    const schema = generateSchemaName(companyName.trim() || "company");
+
+    fetch(`/api/outputs/${fsEntry.runId}?schemaName=${encodeURIComponent(schema)}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: { structured_data: Record<string, unknown> } | null) => {
+        if (data?.structured_data) {
+          setFsOutput(data.structured_data);   // load the full FSOutput into state
+          setOutputReady(true);                // activate Preview / PDF / XBRL buttons
+          setSelectedTask("financial_statements");  // switch the task tab to FS so the buttons are visible
+        }
+      })
+      .catch(() => {/* non-fatal — user can still generate manually */});
+  // Re-run when the agent produces a new FS run or when the active company changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentCompletedRuns, companyName]);
 
   // ── File upload handler ────────────────────────────────────────────────────
 
@@ -436,6 +466,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
           entityId={entityId}
           fiscalYearId={fiscalYearId}
           isAuditExempt={false}
+          agentCompletedRuns={agentCompletedRuns}
         />
       )}
 
@@ -446,6 +477,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
           companyName={companyName.trim()}
           entityId={entityId}
           uen={uen.trim() || "202500001A"}
+          agentCompletedRuns={agentCompletedRuns}
         />
       )}
 
@@ -458,6 +490,7 @@ export function WorkflowPanel({ onSchemaNameChange }: WorkflowPanelProps = {}) {
           fiscalYearId={fiscalYearId}
           uen={uen.trim() || "202500001A"}
           fyeDate={fyeDate}
+          agentCompletedRuns={agentCompletedRuns}
         />
       )}
 
