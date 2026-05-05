@@ -48,6 +48,8 @@ import { queryVectorStore, ingestToVectorStore } from "@/lib/vectorStore";
 import { getLangfuse, flushLangfuse } from "@/lib/langfuse";
 import { MODEL_ROUTES } from "@/lib/modelRouter";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
+import { writeVaultNote } from "@/lib/agents/vaultWriter";       // V3.1: vault notes for chat interactions
+import { getRecentVaultNotes } from "@/lib/agents/vaultReader";  // V3.1: prior-run context for LLM injection
 
 // Validate the request body
 const RequestSchema = z.object({
@@ -97,13 +99,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // ── V3.1: Read recent vault notes for this client ─────────────────────────
+  // Called once before the correction/Q&A branch so the result is available to
+  // both the Q&A system prompt injection and the Langfuse trace input field.
+  // Returns "" silently when vault is unconfigured or client has no prior runs.
+  const recentNotes = await getRecentVaultNotes(schemaName, 5);
+
   // ── Langfuse: open parent trace for this chat message ─────────────────────
   // Tracks both correction and question paths so you can see what users are
   // asking and whether corrections are being captured correctly.
+  // vaultContext included so the dashboard shows what prior context was available.
   const langfuse = getLangfuse();
   const trace = langfuse.trace({
-    name: "chat_response",
-    input: { message, schemaName, path: isCorrection(message) ? "correction" : "question" },
+    name:  "chat_response",
+    input: {
+      message,
+      schemaName,
+      path:         isCorrection(message) ? "correction" : "question",
+      vaultContext: recentNotes || "",  // "" when no prior runs or vault not configured
+    },
   });
 
   if (isCorrection(message)) {
@@ -140,6 +154,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await flushLangfuse();
 
+    // V3.1: fire-and-forget vault note for correction interactions.
+    // void — does not block the HTTP response; writeVaultNote has its own try/catch.
+    void writeVaultNote({
+      clientId:                 schemaName,
+      goal:                     message,
+      workflows:                ["correction"],                           // correction wiki-link tag
+      inputsUsed:               { "Correction": message },
+      dataFetched:              {},                                       // corrections do not fetch from Supabase
+      outputsGenerated:         { "Status": "Correction submitted to knowledge base" },
+      optionalInputsNotApplied: {},
+      errors:                   {},
+    });
+
     return NextResponse.json({
       type: "correction",
       message:
@@ -157,7 +184,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? ragResults.map((r) => r.text).join("\n\n---\n\n")
       : "No relevant content found in the knowledge base.";
 
-  const systemPrompt = `You are an expert Singapore chartered accountant assistant for FinAgent-SG.
+  const systemPromptBase = `You are an expert Singapore chartered accountant assistant for FinAgent-SG.
 Answer accounting questions accurately and concisely, focusing on Singapore SFRS standards,
 IRAS tax guidance, ACRA filing requirements, and CPF/payroll rules.
 
@@ -170,20 +197,28 @@ ${ragContext}
 If the knowledge base does not contain relevant information, answer from your general Singapore accounting knowledge.
 Keep answers concise — 2–4 sentences unless more detail is clearly needed.`;
 
+  // Append vault context when prior run notes exist for this client.
+  // Same pattern as managerNode — injected into system message only, not the user turn.
+  const systemPrompt = recentNotes
+    ? systemPromptBase +
+      "\n\nHere are the last interactions for this client for your context. Use this to give more informed and consistent responses:\n\n" +
+      recentNotes
+    : systemPromptBase;
+
   // ── Langfuse: generation for the question answer ──────────────────────────
   const generation = trace.generation({
-    name: "answer_question",
+    name:  "answer_question",
     model: MODEL_ROUTES.chat_response,
-    input: { system: systemPrompt, user: message },
+    input: { system: systemPrompt, user: message },  // systemPrompt includes vault context when present
   });
 
   // Step 2: Call GPT-4.1-mini with the question + RAG context.
   let answer: string;
   try {
     const { text, usage } = await generateText({
-      model: openai(MODEL_ROUTES.chat_response),
-      system: systemPrompt,
-      prompt: message,
+      model:   openai(MODEL_ROUTES.chat_response),
+      system:  systemPrompt,  // vault context included when recentNotes is non-empty
+      prompt:  message,
     });
     answer = text;
 
@@ -210,6 +245,22 @@ Keep answers concise — 2–4 sentences unless more detail is clearly needed.`;
   // Flush Langfuse before returning — events must reach the server before
   // the HTTP connection closes.
   await flushLangfuse();
+
+  // V3.1: fire-and-forget vault note for Q&A interactions.
+  // Truncate the answer to 200 chars in outputsGenerated to keep notes readable.
+  // void — does not block the HTTP response; writeVaultNote has its own try/catch.
+  void writeVaultNote({
+    clientId:                 schemaName,
+    goal:                     message,
+    workflows:                ["question"],                               // question wiki-link tag
+    inputsUsed:               { "Question": message },
+    dataFetched:              {},                                         // Q&A does not fetch from Supabase
+    outputsGenerated:         {
+      "Answer": answer.length > 200 ? answer.slice(0, 200) + "..." : answer,  // truncate long answers
+    },
+    optionalInputsNotApplied: {},
+    errors:                   {},
+  });
 
   return NextResponse.json({ type: "answer", message: answer });
 }

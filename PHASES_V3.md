@@ -171,19 +171,43 @@ These are confirmed gaps found during smoke testing. They do not affect correctn
 
 ---
 
-## V3.1 — Planned: Obsidian Knowledge Store
+## V3.1 — Obsidian Knowledge Store
+**Status**: [x] Complete
 
-After each agent run, write a structured markdown note to a local Obsidian vault recording what was run, what data was fetched, and what the outputs were. Over time the vault becomes a compounding knowledge base of every compliance run per client. The agent queries this vault in future runs to improve responses — for example, recalling a client's prior depreciation method or CPF contribution pattern.
+After each agent run, Q&A interaction, and correction submission, a structured markdown note is written to a local Obsidian vault folder configured via FINAGENT_VAULT_PATH environment variable (outside the project root). The Manager Node and Q&A chatbot read the last 5 notes per client before each LLM call and inject them as system prompt context. All interactions are visible in Langfuse with vaultContext recorded in the trace input.
 
-**Approach**: Based on the Karpathy LLM Wiki pattern — plain markdown files replace vector retrieval for run history. No new infrastructure required locally. Vault lives outside the Next.js project as a separate folder.
+Files added:
+- lib/agents/vaultWriter.ts — writes structured markdown notes with Obsidian wiki-link tags ([[clientId]] [[workflow]])
+- lib/agents/vaultReader.ts — reads last 5 notes per client, returns concatenated string
 
-**Deployment note**: Obsidian is local-first. V3.1 targets local development only for now — vault persistence in a deployed environment (Vercel has no persistent filesystem) is deferred.
+Files modified:
+- lib/agents/state.ts — added vaultContext field
+- lib/agents/nodes/index.ts — managerNode reads vault context and injects into system prompt; summaryNode writes vault note after each run; console.log confirms vault context loading
+- app/api/agent/route.ts — vaultContext captured from graph state and recorded in Langfuse trace input
+- app/api/chat/route.ts — vault context read and injected into Q&A system prompt; correction and Q&A vault notes written after each interaction; existing chat_response Langfuse trace updated to include vaultContext
 
-**Scope** (to be detailed in V3.1 planning):
-- After each successful agent run, write a `.md` note to `vault/runs/{clientId}/YYYY-MM-DD-{workflow}.md`
-- Note contains: client, workflow, inputs used, data fetched from Supabase, output summary, any errors
-- Manager Node reads recent vault notes for the client at the start of each run to inform its response
-- No change to existing Supabase storage — vault is additive
+Environment variable required:
+  FINAGENT_VAULT_PATH=/absolute/path/to/obsidian/vault
+
+Note: langfuse-langchain excluded due to @langchain/core version conflict — per-node Langfuse spans not available; trace-level observability only.
+
+---
+
+## V3.2 — Tool Calling (planned)
+**Status**: [ ] Not started
+
+Replace manual JSON parsing in Manager Node with native OpenAI tool calling. Add tool calling to four high-impact locations:
+
+1. Manager Node — four tools defined with Zod schemas: run_financial_statement, run_payroll, compute_tax, generate_financial_model. LLM selects and parameterises tools directly instead of returning parsed JSON.
+
+2. RAG Chatbot — two tools: query_knowledge_base (retrieves SFRS/CPF/tax regulations before answering) and submit_correction (LLM calls tool directly to write to corrections table, closing the correction loop).
+
+3. Tax Agent — two tools: identify_tax_adjustments (suggests applicable SG tax adjustments from classified accounts) and check_startup_eligibility (derives is_new_startup from entity incorporation date instead of defaulting to false).
+
+4. Financial Statement Generation — two tools: apply_sfrs_disclosure (retrieves exact SFRS disclosure requirements from RAG before writing each note) and validate_classification (cross-checks account classifications against SFRS rules).
+
+Estimated effort: 1.5 to 2 weeks of Claude Code sessions.
+FS generation changes are highest risk — require careful prompt engineering and thorough testing.
 
 ---
 
@@ -195,4 +219,5 @@ After each agent run, write a structured markdown note to a local Obsidian vault
 - [x] V3-D — Chat UI integration
 - [x] V3-E — PHASES_V3.md
 - [x] Known gaps — placeholder text, chat UI polish, post-completion guidance, output transparency, download capability — left panel auto-load
-- [ ] V3.1 — Obsidian knowledge store (local dev only)
+- [x] V3.1 — Obsidian knowledge store (local dev only)
+- [ ] V3.2 — Tool calling (4 high impact locations)

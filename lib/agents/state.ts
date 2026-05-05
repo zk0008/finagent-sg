@@ -59,6 +59,10 @@ export const AgentStateSchema = z.object({
   // to the user (e.g. which FS output was used, how many employees were loaded).
   fetchedContext: z.record(z.string(), z.string()),
 
+  // Vault context string read by managerNode from the local Obsidian vault.
+  // Written to state so agent/route.ts can include it in the Langfuse trace.
+  vaultContext: z.string(),
+
   // Final human-readable summary produced by the Summary node, posted to chat
   summary: z.string().optional(),
 });
@@ -171,6 +175,15 @@ export const GraphState = Annotation.Root({
       ...next,   // merge in the new entry from the current node
     }),
     default: () => ({}),  // starts empty; populated lazily as nodes run
+  }),
+
+  // Vault context string written by managerNode after reading getRecentVaultNotes.
+  // Empty string when no prior runs exist or vault is unavailable.
+  // Exposed to agent/route.ts via the streaming updates so it can be included
+  // in the Langfuse trace input for observability.
+  vaultContext: Annotation<string>({
+    reducer: (_prev: string, next: string) => next,  // last-write-wins
+    default: () => "",                                 // empty until managerNode runs
   }),
 
   // Final summary text; undefined until the Summary node writes it

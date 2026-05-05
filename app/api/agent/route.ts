@@ -103,6 +103,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     financialModelResult: undefined,
     errors:              {},      // nodes write { nodeName: errorMessage } on failure
     fetchedContext:      {},      // nodes write plain-English descriptions of Supabase fetches
+    vaultContext:        "",      // managerNode writes the notes string; "" until then
     summary:             undefined,
   };
 
@@ -130,6 +131,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 
       // Accumulate the final summary as it comes out of summaryNode
       let finalSummary: string | undefined;
+
+      // Accumulate vault context written by managerNode — included in Langfuse trace
+      // input so the dashboard shows what prior run notes were available for each run.
+      let vaultContext = "";
 
       // ── Run ID accumulators ────────────────────────────────────────────
       // Each worker node writes its output to a different state field.
@@ -201,6 +206,12 @@ export async function POST(req: NextRequest): Promise<Response> {
             finalSummary = nodeUpdate.summary;
           }
 
+          // Capture vault context written by managerNode into state.
+          // typeof guard avoids reading the field on nodes that don't set it.
+          if (nodeName === "managerNode" && typeof nodeUpdate?.vaultContext === "string") {
+            vaultContext = nodeUpdate.vaultContext;
+          }
+
           // ── Pick up run IDs per node for the completedRuns payload ──────
           // Each worker node writes its result to a different state field.
           // Safe casts: these fields are typed as `object | undefined` in GraphState.
@@ -261,8 +272,13 @@ export async function POST(req: NextRequest): Promise<Response> {
           data:  { summary: finalSummary ?? "", completedRuns },
         });
 
-        // Record the run outcome in Langfuse
-        trace.update({ output: { summary: finalSummary ?? "" } });
+        // Record the run outcome in Langfuse.
+        // input is updated to include vaultContext so the dashboard shows
+        // what prior-run context (if any) was available when managerNode ran.
+        trace.update({
+          input:  { goal, clientId, vaultContext },         // vault context visible per trace
+          output: { summary: finalSummary ?? "" },
+        });
 
       } catch (err) {
         // Unhandled error in graph execution — emit and record

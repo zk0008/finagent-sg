@@ -23,6 +23,8 @@ import { openai } from "@ai-sdk/openai";
 import { MODEL_ROUTES } from "@/lib/modelRouter";
 import { supabase } from "@/lib/supabaseClient";  // used by taxNode and financialModelNode Supabase fallback
 import { GraphState } from "../state";
+import { writeVaultNote } from "@/lib/agents/vaultWriter";   // V3.1-A: writes a markdown run note to the local vault
+import { getRecentVaultNotes } from "@/lib/agents/vaultReader"; // V3.1-B: reads recent notes for context injection
 
 // Shorthand: the full inferred state type from the LangGraph Annotation
 type State = typeof GraphState.State;
@@ -151,8 +153,20 @@ export async function validationNode(state: State): Promise<NodeReturn> {
  * Uses the same model identifier as FS generation (accuracy-critical routing).
  */
 export async function managerNode(state: State): Promise<NodeReturn> {
+  // ── V3.1: Read recent vault notes for this client ────────────────────────
+  // Fetches the last 5 run notes from the local vault (returns "" if vault is
+  // unavailable or the client has no prior notes — safe to call unconditionally).
+  const recentNotes = await getRecentVaultNotes(state.clientId, 5);
+
+  // Change 4 — single log line so the Next.js server terminal shows whether
+  // vault context was injected, without logging any sensitive note content
+  console.log(
+    `[managerNode] vault context for ${state.clientId}:`,
+    recentNotes ? `${recentNotes.length} chars loaded` : "empty — no prior runs"
+  );
+
   // System prompt instructs the LLM to return only JSON — no markdown, no commentary
-  const systemPrompt = `You are a compliance workflow manager for a Singapore private limited company accounting system. Given a user goal, extract the following as JSON and nothing else:
+  const systemPromptBase = `You are a compliance workflow manager for a Singapore private limited company accounting system. Given a user goal, extract the following as JSON and nothing else:
 - runFS: boolean — true if goal involves financial statements or trial balance
 - runPayroll: boolean — true if goal involves payroll or CPF
 - runTax: boolean — true if goal involves corporate tax or Form C
@@ -163,6 +177,15 @@ export async function managerNode(state: State): Promise<NodeReturn> {
 - yearOfAssessment: string or null — e.g. 'YA2026'
 - projectionPeriodYears: number or null — e.g. 3
 Respond with valid JSON only. No explanation, no markdown.`;
+
+  // Append vault context to the system prompt only when prior notes exist.
+  // Injected into the system message so it informs goal parsing without
+  // appearing in the user-visible conversation or polluting the JSON output.
+  const systemPrompt = recentNotes
+    ? systemPromptBase +
+      "\n\nHere are the last runs for this client for your context. Use this to inform your understanding of the client's workflows and preferences. Do not repeat this information back to the user:\n\n" +
+      recentNotes
+    : systemPromptBase;
 
   let parsed: {
     runFS:                 boolean;
@@ -202,7 +225,9 @@ Respond with valid JSON only. No explanation, no markdown.`;
     };
   }
 
-  // Map null → undefined so the state fields stay as T | undefined (not null)
+  // Map null → undefined so the state fields stay as T | undefined (not null).
+  // vaultContext is written here so agent/route.ts can include it in the
+  // Langfuse trace — making vault context visible in the dashboard per run.
   return {
     runFS:                 parsed.runFS,
     runPayroll:            parsed.runPayroll,
@@ -213,6 +238,7 @@ Respond with valid JSON only. No explanation, no markdown.`;
     payrollYear:           parsed.payrollYear           ?? undefined,
     yearOfAssessment:      parsed.yearOfAssessment      ?? undefined,
     projectionPeriodYears: parsed.projectionPeriodYears ?? undefined,
+    vaultContext:          recentNotes,  // "" when no prior runs; non-empty when notes loaded
   };
 }
 
@@ -578,7 +604,7 @@ export async function financialModelNode(state: State): Promise<NodeReturn> {
  * Collates all result slots and error entries into a single plain-English
  * summary string and writes it to state.summary for posting to chat.
  */
-export function summaryNode(state: State): NodeReturn {
+export async function summaryNode(state: State): Promise<NodeReturn> {
   const lines: string[] = [];
 
   // ── Surface any missing inputs first ────────────────────────────────────
@@ -679,6 +705,92 @@ export function summaryNode(state: State): NodeReturn {
       "(5% revenue growth, 3% COGS growth, 3% OPEX growth); go to Financial Model in the left panel to adjust\n" +
       "- Projections are not saved — go to Financial Model in the left panel to review and save your model";
   }
+
+  // ── V3.1: Write vault note ────────────────────────────────────────────────
+  // Build all param objects from state, then call the vault writer.
+  // writeVaultNote has its own internal try/catch — any error is logged and
+  // swallowed there, so a vault failure cannot affect the summary return below.
+
+  // Derive the list of workflows that completed in this run
+  const completedWorkflows: string[] = [
+    ...(state.fsResult             ? ["financial_statement"] : []),
+    ...(state.payrollResult        ? ["payroll"]             : []),
+    ...(state.taxResult            ? ["tax"]                 : []),
+    ...(state.financialModelResult ? ["financial_model"]     : []),
+  ];
+
+  // Build inputsUsed from whichever state fields are defined
+  const inputsUsed: Record<string, string> = {};
+  if (state.financialYear !== undefined) {
+    inputsUsed["Financial Year"] = state.financialYear;
+  }
+  if (state.payrollMonth !== undefined && state.payrollYear !== undefined) {
+    inputsUsed["Payroll Month"] = `${state.payrollMonth}/${state.payrollYear}`;
+  }
+  if (state.yearOfAssessment !== undefined) {
+    inputsUsed["Year of Assessment"] = state.yearOfAssessment;
+  }
+  if (state.projectionPeriodYears !== undefined) {
+    inputsUsed["Projection Period"] = `${state.projectionPeriodYears} years`;
+  }
+
+  // Build outputsGenerated from result fields that carry a persisted ID
+  const outputsGenerated: Record<string, string> = {};
+  if (state.fsOutputId !== undefined) {
+    outputsGenerated["Financial Statement"] = state.fsOutputId;  // UUID of the outputs row
+  }
+  if (state.payrollResult !== undefined) {
+    const pr = state.payrollResult as Record<string, unknown>;
+    if (pr.payroll_run_id) outputsGenerated["Payroll Run"] = pr.payroll_run_id as string;
+  }
+  if (state.taxResult !== undefined) {
+    const tr = state.taxResult as Record<string, unknown>;
+    if (tr.computation_id) outputsGenerated["Tax Computation"] = tr.computation_id as string;
+  }
+  if (state.financialModelResult !== undefined) {
+    outputsGenerated["Financial Model"] = "Projections generated";
+  }
+
+  // Build optionalInputsNotApplied — fixed lists per workflow, only for completed ones
+  const optionalInputsNotApplied: Record<string, string[]> = {};
+  if (state.fsResult) {
+    optionalInputsNotApplied["Financial Statement"] = [
+      "Going concern notes",
+      "Depreciation method changes",
+    ];
+  }
+  if (state.payrollResult) {
+    optionalInputsNotApplied["Payroll"] = [
+      "Additional wages",
+      "Allowances",
+      "Deductions",
+      "YTD ordinary wages",
+    ];
+  }
+  if (state.taxResult) {
+    optionalInputsNotApplied["Tax"] = [
+      "Tax adjustments",
+      "New start-up exemption review",
+    ];
+  }
+  if (state.financialModelResult) {
+    optionalInputsNotApplied["Financial Model"] = [
+      "Growth rate assumption adjustments",
+      "Model save",
+    ];
+  }
+
+  // Await the write — writeVaultNote returns void and never throws
+  await writeVaultNote({
+    clientId:                 state.clientId,
+    goal:                     state.goal,
+    workflows:                completedWorkflows,
+    inputsUsed,
+    dataFetched:              state.fetchedContext,  // already Record<string, string>
+    outputsGenerated,
+    optionalInputsNotApplied,
+    errors:                   state.errors,
+  });
 
   return { summary: summaryText };
 }
