@@ -2,16 +2,51 @@
 
 ## Overview
 
-Phase V3 transforms FinAgent-SG from a tool-assisted LLM application into a true agentic system using **LangGraph.js** (`@langchain/langgraph`) as the orchestration layer. The chatbot becomes the entry point to a graph-based multi-agent pipeline where a Validation Node checks required inputs upfront, a Manager Node parses the user's goal, and specialised Worker Nodes execute the four core compliance workflows.
+Phase V3 transforms FinAgent-SG from a tool-assisted LLM application 
+into a true agentic system. It is built in three layers on top of 
+the existing Phases 0–7 foundation:
 
-LangGraph.js was chosen over manual TypeScript implementation and CrewAI because:
-- It is native TypeScript — no Python microservice, no second deployment, stays in the existing Next.js codebase
-- Its node/edge model directly encodes the rule-based sequencing decisions locked in this phase
-- Shared graph state natively handles result passing between nodes (e.g. FS output → Tax node)
-- Its streaming support integrates with the existing SSE pattern already in the stack
-- Langfuse (already self-hosted) is integrated via the existing `getLangfuse()` singleton — `langfuse-langchain` was excluded due to a `@langchain/core` version conflict with LangGraph
+**Layer 1 — Multi-Agent Orchestration (V3 core)**
+Uses LangGraph.js (`@langchain/langgraph`) as the orchestration layer. 
+The chatbot becomes the entry point to a graph-based multi-agent 
+pipeline where a Validation Node checks required inputs upfront, a 
+Manager Node parses the user's goal using native OpenAI tool calling, 
+and specialised Worker Nodes execute the four core compliance workflows. 
+The Manager Node supports multi-intent messages — a single natural 
+language instruction can trigger multiple tools in sequence (e.g. 
+"Add employee John and run payroll for May 2026"). Write operations 
+require explicit Yes/No confirmation from the user before execution.
 
-The existing API routes, computation engines, and Supabase schemas are **unchanged**. The agent layer is a new orchestration layer built entirely on top.
+**Layer 2 — Obsidian Knowledge Store (V3.1)**
+After each agent run, Q&A interaction, and correction submission, 
+a structured markdown note is written to a local Obsidian vault. 
+The Manager Node and Q&A chatbot read the last 5 notes per client 
+before each LLM call, injecting prior run history as system prompt 
+context. This gives the agent a compounding memory of each client's 
+workflows, preferences, and corrections — a true second brain. All 
+interactions are observable in Langfuse with vault context recorded 
+in the trace input.
+
+**Layer 3 — Tool Calling (V3.2, in progress)**
+Replaces manual JSON parsing in the Manager Node with native Vercel 
+AI SDK tool calling. Extends tool calling to high-impact locations: 
+RAG knowledge base queries, tax adjustment identification, and action 
+tools (add/update employee, add client, configure tax overrides). 
+Each tool has a Zod-validated schema. Action tools require sequential 
+Yes/No confirmation before any write operation executes.
+
+LangGraph.js was chosen over manual TypeScript implementation and 
+CrewAI because:
+- It is native TypeScript — no Python microservice, no second 
+  deployment, stays in the existing Next.js codebase
+- Its node/edge model directly encodes rule-based sequencing decisions
+- Shared graph state natively handles result passing between nodes
+- Its streaming support integrates with the existing SSE pattern
+- Langfuse (already self-hosted) integrates via the existing 
+  getLangfuse() singleton
+
+The existing API routes, computation engines, and Supabase schemas 
+are **unchanged**. All three layers are additive on top.
 
 ---
 
@@ -19,40 +54,67 @@ The existing API routes, computation engines, and Supabase schemas are **unchang
 
 ```
 User Goal (chat)
-      ↓
-app/api/agent/route.ts              ← new API route, SSE streaming, Langfuse trace
-      ↓
-LangGraph.js StateGraph             ← new orchestration layer
-      ↓
-┌──────────────────────────────────────────┐
-│  Validation Node                         │  ← pure TypeScript, no LLM call
-│  checks clientId + all required inputs   │  ← reads nothing from Supabase
-└──────────────┬───────────────────────────┘
-               │ missing inputs → return list to user, stop
-               │ all inputs present → continue
-               ↓
-┌──────────────────────────────────────────┐
-│  Manager Node (GPT-4.1)                  │  ← parses goal, sets run flags
-└──────┬───────┬───────┬───────────────────┘
+↓
+app/api/agent/route.ts          ← SSE streaming, Langfuse trace
+↓
+LangGraph.js StateGraph         ← orchestration layer
+↓
+┌─────────────────────────────────────────────────────┐
+│  Validation Node                                    │
+│  checks clientId + all required inputs              │
+│  reads Supabase for hard constraints (e.g. prior FS)│
+└──────────────────┬──────────────────────────────────┘
+                   │ missing → list to user, stop
+                   │ confirmed re-invocation → bypass to worker directly
+                   │ all present → continue
+                   ↓
+┌─────────────────────────────────────────────────────┐
+│  Manager Node (GPT-4.1 + native tool calling)       │
+│  reads last 5 Obsidian vault notes for client       │
+│  calls tools: run_fs, run_payroll, compute_tax,     │
+│  generate_model, add_employee, update_employee,     │
+│  add_client, configure_tax                          │
+│  multi-intent: multiple tools called per message    │
+│  action tools → pendingAction (confirmation first)  │
+└──────┬───────┬───────┬───────────────────────────── ┘
        │       │       │
   [edges — rule-based, hardcoded in TypeScript]
        │       │       │
   FS Node  Payroll  Financial Model Node
        │    Node
-       │  [FS output written to shared graph state]
+       │  [fsOutputId written to shared graph state]
        ↓
-  Tax Node     ← runs after FS Node (chain) OR standalone with Supabase fsOutputId fallback
+  Tax Node  ← chain after FS, OR standalone Supabase fallback
        │
        ↓
-┌──────────────────────────────────────────┐
-│  Summary Node                            │  ← collects results, posts to chat
-└──────────────────────────────────────────┘
-      ↓
-Existing API routes  [app/api/]            ← unchanged
-      ↓
-Existing computation engines              ← unchanged
-      ↓
-Existing Supabase per-client schemas      ← unchanged
+┌─────────────────────────────────────────────────────┐
+│  Summary Node                                       │
+│  collects results + fetchedContext + optional       │
+│  inputs advisory                                    │
+│  writes Obsidian vault note after every run         │
+└─────────────────────────────────────────────────────┘
+↓
+┌─────────────────────────────────────────────────────┐
+│  Obsidian Vault  ~/finagent-vault/{clientId}/       │
+│  ← agent runs, Q&A, corrections all written here   │
+│  ← Manager Node reads last 5 notes per client      │
+└─────────────────────────────────────────────────────┘
+↓
+Existing API routes  [app/api/]     ← unchanged
+↓
+Existing computation engines       ← unchanged
+↓
+Existing Supabase per-client schemas ← unchanged
+
+Confirmation flow (action tools only):
+User message → Manager Node calls action tool
+↓
+pendingAction set in graph state
+↓
+ConfirmationCard rendered in chat (Yes/No buttons)
+↓
+Yes → POST /api/agent/confirm → execute action → re-invoke graph
+No  → cancel, report to user
 ```
 
 ---
