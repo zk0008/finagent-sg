@@ -308,7 +308,7 @@ if null.
 
 ### Implementation steps
 - [x] V3.2-A — Manager Node multi-intent tool calling
-- V3.2-B — RAG Chatbot query_knowledge_base tool
+- [x] V3.2-B — RAG Chatbot query_knowledge_base tool
 - V3.2-C — Tax Agent identify_tax_adjustments + check_startup_eligibility
 - V3.2-D — Action tools: add/update employee, add client
 - V3.2-E — Tax profit/revenue override (schema change + configure_tax tool)
@@ -329,3 +329,4 @@ if null.
 - [ ] V3.2 — Tool calling (4 high impact locations)
   - [x] V3.2-F — Confirmation UI component
   - [x] V3.2-A — Manager Node multi-intent tool calling
+  - [x] V3.2-B — RAG Chatbot query_knowledge_base and submit_correction tools
