@@ -26,6 +26,7 @@ import { supabase } from "@/lib/supabaseClient";  // used by taxNode and financi
 import { GraphState } from "../state";
 import { writeVaultNote } from "@/lib/agents/vaultWriter";   // V3.1-A: writes a markdown run note to the local vault
 import { getRecentVaultNotes } from "@/lib/agents/vaultReader"; // V3.1-B: reads recent notes for context injection
+import { queryVectorStore, ingestToVectorStore } from "@/lib/vectorStore"; // V3.2 knowledge base query and correction ingestion
 
 // Shorthand: the full inferred state type from the LangGraph Annotation
 type State = typeof GraphState.State;
@@ -249,6 +250,32 @@ const configureTaxTool = tool({
   }),
 });
 
+// Queries the knowledge base; results are processed in the tool call loop
+const queryKnowledgeBaseTool = tool({
+  description:
+    "Query the Singapore accounting and tax knowledge base to retrieve relevant SFRS standards, " +
+    "IRAS tax guidance, CPF contribution tables, ACRA filing requirements, or MOM payroll rules. " +
+    "Call this when the user asks a question that requires specific regulatory knowledge.",
+  inputSchema: z.object({
+    query: z.string().describe(
+      "A focused search query extracting the key regulatory concept " +
+      "e.g. 'CPF contribution rate Singapore PR year 2'"
+    ),
+  }),
+});
+
+// Submits a correction to the knowledge base; written to Supabase and ChromaDB
+const submitCorrectionTool = tool({
+  description:
+    "Submit a correction to the accounting knowledge base. Call this when the user wants to " +
+    "update, fix, change, or correct information about the client's accounting records or preferences.",
+  inputSchema: z.object({
+    correction: z.string().describe(
+      "The full correction text exactly as the user stated it"
+    ),
+  }),
+});
+
 // ─── buildDescription helper ──────────────────────────────────────────────────
 
 /**
@@ -314,12 +341,36 @@ export async function managerNode(state: State): Promise<NodeReturn> {
   // ── V3.2-A: Tool-calling system prompt ──────────────────────────────────
   // Instructs the LLM to call tools (not return JSON) — multi-intent goals can
   // trigger multiple tool calls in a single pass (e.g. run_payroll + compute_tax).
-  const systemPrompt =
-    "You are a compliance workflow manager for a Singapore private limited company accounting system. " +
-    "Given a user goal, call the appropriate tools to fulfil the request. You may call multiple tools if the goal requires it.\n" +
-    "Call tools in logical order — if financial statements are needed before tax, call run_financial_statement before compute_tax.\n" +
-    "For tools that require confirmation (add_employee, update_employee, add_client, configure_tax), call them and they will be queued " +
-    "for user confirmation before execution." +
+  // Priority rules and examples are explicit so the LLM never ignores a workflow
+  // instruction when the message also contains a question or correction intent.
+  const systemPromptBase =
+`You are a compliance workflow manager for a Singapore private limited company accounting system.
+
+Your job is to analyse the user's message and call ALL appropriate tools to fulfil every instruction in the message. A single message may contain multiple instructions of different types.
+
+TOOL CALLING RULES — follow these strictly:
+
+1. WORKFLOW INSTRUCTIONS — if the message contains any of the following, you MUST call the corresponding workflow tool:
+   - "run payroll" / "process payroll" → call run_payroll
+   - "prepare financial statement" / "generate financial statement" / "run financial statement" → call run_financial_statement
+   - "compute tax" / "calculate tax" / "corporate tax" → call compute_tax
+   - "generate financial model" / "run financial model" / "financial projection" / "generate projection" → call generate_financial_model
+   Never treat a message containing a workflow instruction as a question-only message.
+
+2. QUESTIONS — if the message contains a question about accounting, tax, CPF, payroll, or Singapore regulations, call query_knowledge_base with a focused search query extracting the key regulatory concept.
+
+3. CORRECTIONS — if the message contains an instruction to update, change, fix, or correct something about the client's accounting records or preferences, call submit_correction with the exact correction text.
+
+4. MULTI-INTENT — call ALL relevant tools when multiple instruction types are present. Examples:
+   - "Run payroll for April 2026 and what is the CPF rate for PR year 2?" → call run_payroll AND query_knowledge_base
+   - "Prepare financial statement for 2025. The depreciation should use straight-line method." → call run_financial_statement AND submit_correction
+   - "Run payroll for May 2026. What is SDL? Update the transport allowance to be non-taxable." → call run_payroll AND query_knowledge_base AND submit_correction
+
+5. ACTION TOOLS — for add_employee, update_employee, delete_employee, add_client, configure_tax: call these when the user explicitly requests creating, updating, or deleting records. These require user confirmation before executing.
+
+6. NEVER return a plain text response without calling any tools. Always call at least one tool. If the message is unclear, call query_knowledge_base with the full message as the query.`;
+
+  const systemPrompt = systemPromptBase +
     (recentNotes ? "\n\nHere are the last runs for this client:\n\n" + recentNotes : "");
 
   // ── Accumulators — populated by iterating over result.toolCalls ──────────
@@ -336,6 +387,12 @@ export async function managerNode(state: State): Promise<NodeReturn> {
   let projectionPeriodYears: number | undefined;
   // Action tool result: only the first action tool call is queued (sequential confirmation)
   let pendingAction: { tool: string; params: Record<string, unknown>; description: string } | undefined;
+  // RAG results collected by query_knowledge_base tool calls; answered after the loop
+  const ragResults: { text: string }[] = [];
+  // fetchedContext entries written by query_knowledge_base and submit_correction
+  const managerFetchedContext: Record<string, string> = {};
+  // Synthesised answer from ragResults; populated after the tool call loop if RAG ran
+  let ragContext = "";
 
   try {
     // ── Call GPT-4.1 with all 8 tools; LLM decides which ones to invoke ──────
@@ -346,14 +403,16 @@ export async function managerNode(state: State): Promise<NodeReturn> {
       system: systemPrompt,
       prompt: state.goal,                           // the user's natural language goal
       tools: {
-        run_financial_statement: runFinancialStatementTool,
-        run_payroll:             runPayrollTool,
-        compute_tax:             computeTaxTool,
+        run_financial_statement:  runFinancialStatementTool,
+        run_payroll:              runPayrollTool,
+        compute_tax:              computeTaxTool,
         generate_financial_model: generateFinancialModelTool,
-        add_employee:            addEmployeeTool,
-        update_employee:         updateEmployeeTool,
-        add_client:              addClientTool,
-        configure_tax:           configureTaxTool,
+        add_employee:             addEmployeeTool,
+        update_employee:          updateEmployeeTool,
+        add_client:               addClientTool,
+        configure_tax:            configureTaxTool,
+        query_knowledge_base:     queryKnowledgeBaseTool,
+        submit_correction:        submitCorrectionTool,
       },
     });
 
@@ -392,6 +451,27 @@ export async function managerNode(state: State): Promise<NodeReturn> {
         runFinancialModel    = true;
         projectionPeriodYears = (input as { projectionPeriodYears: number }).projectionPeriodYears;
 
+      } else if (toolName === "query_knowledge_base") {
+        // Retrieve relevant knowledge base chunks; answer generated after the loop
+        const queryInput = input as { query: string };
+        const results = await queryVectorStore(queryInput.query, 4);
+        ragResults.push(...results);
+        managerFetchedContext["query_knowledge_base"] = "Queried knowledge base: " + queryInput.query;
+
+      } else if (toolName === "submit_correction") {
+        // Persist the correction to Supabase and ingest into the vector store
+        const correctionInput = input as { correction: string };
+        await supabase
+          .schema(state.clientId)
+          .from("corrections")
+          .insert({ message: correctionInput.correction, status: "pending" });
+        await ingestToVectorStore(
+          correctionInput.correction,
+          "correction::" + state.clientId + "::" + Date.now(),
+          "correction"
+        );
+        managerFetchedContext["submit_correction"] = "Correction submitted: " + correctionInput.correction;
+
       } else if (
         toolName === "add_employee"   ||
         toolName === "update_employee" ||
@@ -415,6 +495,25 @@ export async function managerNode(state: State): Promise<NodeReturn> {
           console.warn(`[managerNode] skipping additional action tool call: ${toolName}`);
         }
       }
+    }
+
+    // ── Generate RAG answer if any query_knowledge_base calls were made ───────
+    // A second LLM call synthesises the retrieved chunks into a concise answer.
+    // Runs inside the try block so any failure is caught by the catch below.
+    // ragContext is declared outside try so it is accessible in the return below.
+    if (ragResults.length > 0) {
+      const ragAnswer = await generateText({
+        model:  openai(MODEL_ROUTES.chat_response),
+        system:
+          "You are an expert Singapore chartered accountant. " +
+          "Answer the question concisely using the provided knowledge base content. " +
+          "Keep the answer to 2-4 sentences.",
+        prompt:
+          "Question: " + state.goal +
+          "\n\nKnowledge base:\n" +
+          ragResults.map((r) => r.text).join("\n\n---\n\n"),
+      });
+      ragContext = ragAnswer.text;
     }
 
   } catch (err) {
@@ -450,6 +549,8 @@ export async function managerNode(state: State): Promise<NodeReturn> {
       projectionPeriodYears,
       pendingAction,      // queued for ConfirmationCard in ChatbotPanel
       vaultContext:  recentNotes,
+      ragContext,
+      ...(Object.keys(managerFetchedContext).length > 0 ? { fetchedContext: managerFetchedContext } : {}),
     };
   }
 
@@ -467,6 +568,8 @@ export async function managerNode(state: State): Promise<NodeReturn> {
     projectionPeriodYears,
     pendingAction: undefined,  // explicitly clear any stale pendingAction from a prior run
     vaultContext:  recentNotes,
+    ragContext,
+    ...(Object.keys(managerFetchedContext).length > 0 ? { fetchedContext: managerFetchedContext } : {}),
   };
 }
 
@@ -894,6 +997,11 @@ export async function summaryNode(state: State): Promise<NodeReturn> {
 
   // Build the workflow completion text first (existing behaviour unchanged)
   let summaryText = lines.join(" ");
+
+  // ── Append knowledge base answer if managerNode ran a RAG query ─────────────
+  if (state.ragContext) {
+    summaryText += "\n\nKnowledge base answer:\n" + state.ragContext;
+  }
 
   // ── Append "Data used" section if any node recorded a Supabase fetch ────────
   // fetchedContext is populated by nodes that resolved data from Supabase in the

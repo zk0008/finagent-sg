@@ -384,6 +384,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         errors:                {},
         fetchedContext:        {},
         vaultContext:          "",
+        ragContext:            "",      // no RAG query on confirm re-invocation
         pendingAction:         undefined,  // cleared — action is confirmed and done
         pendingActionConfirmed: true,      // hook for future managerNode optimisation
         summary:               undefined,

@@ -104,6 +104,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     errors:              {},      // nodes write { nodeName: errorMessage } on failure
     fetchedContext:      {},      // nodes write plain-English descriptions of Supabase fetches
     vaultContext:        "",      // managerNode writes the notes string; "" until then
+    ragContext:          "",      // managerNode writes RAG answer when query_knowledge_base fires
     pendingAction:       undefined,          // set by managerNode when a write-action tool fires (V3.2-A)
     pendingActionConfirmed: undefined,       // set by /api/agent/confirm after user responds (V3.2-A)
     summary:             undefined,
