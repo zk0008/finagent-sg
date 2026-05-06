@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { verifySchemaAccess } from "@/lib/schemaAccess";  // schema isolation guard — required on all employee handlers
 
 export async function PUT(
   req: NextRequest,
@@ -42,6 +43,12 @@ export async function PUT(
 
   if (!schemaName) {
     return NextResponse.json({ error: "schemaName is required" }, { status: 400 });
+  }
+
+  // Confirm schemaName is registered before writing any employee record
+  const allowed = await verifySchemaAccess(schemaName);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Build update payload — only include fields that were provided
@@ -96,6 +103,12 @@ export async function DELETE(
 
   if (!schemaName) {
     return NextResponse.json({ error: "schemaName is required" }, { status: 400 });
+  }
+
+  // Confirm schemaName is registered before deleting any employee record
+  const deleteAllowed = await verifySchemaAccess(schemaName);
+  if (!deleteAllowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { error } = await supabase

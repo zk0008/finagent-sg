@@ -56,9 +56,26 @@ const graph = new StateGraph(GraphState)
   .addEdge(START, "validationNode")
 
   // ── Edge 2: after validationNode ────────────────────────────────────────────
-  // If any required inputs are missing, stop immediately (the caller must re-ask);
-  // otherwise hand control to the Manager to decide which workers to run.
+  // Three-branch routing in priority order:
+  //   1. pendingActionConfirmed bypass — skip managerNode entirely when the graph
+  //      was re-invoked after the user confirmed a write action. Workflow flags were
+  //      already extracted by the LLM in the original run and are preserved in state
+  //      by the confirm route. Going through managerNode again would cause the LLM's
+  //      local accumulators (all starting at false) to overwrite those flags via the
+  //      last-write-wins reducer, producing "No workflows were executed".
+  //   2. missingInputs guard — stop early if validation found absent required fields.
+  //   3. Normal path — hand control to managerNode to parse the goal and set flags.
   .addConditionalEdges("validationNode", (state: State) => {
+    if (state.pendingActionConfirmed === true) {
+      // Re-invocation after action confirmation — route directly to the first
+      // flagged worker using the same priority order as the managerNode edge.
+      // If no workflow flags are set (action-only goal), go straight to summary.
+      if (state.runFS)             return "financialStatementNode";  // FS takes priority
+      if (state.runPayroll)        return "payrollNode";              // then Payroll
+      if (state.runTax)            return "taxNode";                  // then Tax
+      if (state.runFinancialModel) return "financialModelNode";       // then Financial Model
+      return "summaryNode";        // no workflow flags — emit action-complete summary
+    }
     if (state.missingInputs.length > 0) {
       return END;            // missing inputs → stop; caller reads state.missingInputs
     }
@@ -66,10 +83,14 @@ const graph = new StateGraph(GraphState)
   })
 
   // ── Edge 3: after managerNode ───────────────────────────────────────────────
-  // Priority routing: FS first, then Payroll, then Financial Model.
-  // Only one worker runs per graph invocation; the Manager sets exactly one flag.
-  // If for some reason no flags are true, route directly to summary.
+  // pendingAction check runs FIRST — when an action tool was queued for
+  // confirmation, skip all workers and go directly to summaryNode which will
+  // emit the "review and approve" message. Workflow flags and parameters are
+  // preserved in state for when the graph is re-invoked after confirmation.
+  // Priority routing for workflows: FS first (chains to taxNode if runTax),
+  // then Payroll, standalone Tax, Financial Model. Fallback to summary if none.
   .addConditionalEdges("managerNode", (state: State) => {
+    if (state.pendingAction) return "summaryNode";               // confirmation pending → skip workers
     if (state.runFS) return "financialStatementNode";            // FS takes priority (chains to taxNode if runTax)
     if (state.runPayroll) return "payrollNode";                  // then Payroll
     if (state.runTax) return "taxNode";                          // standalone Tax (taxNode resolves fsOutputId via Supabase)

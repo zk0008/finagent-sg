@@ -30,7 +30,11 @@ export async function proxy(req: NextRequest) {
     pathname === "/api/payroll/process" ||
     pathname === "/api/financial-statements/generate" ||
     pathname === "/api/financial-model/generate" ||
-    pathname === "/api/tax/agent";
+    pathname === "/api/tax/agent" ||
+    // Employee CRUD — called server-to-server by /api/agent/confirm for add_employee
+    // and update_employee actions. Protected by verifySchemaAccess() in each handler.
+    pathname === "/api/payroll/employees" ||                   // POST (create) and GET (list)
+    pathname.startsWith("/api/payroll/employees/");            // PUT and DELETE on /employees/[id]
 
   if (isPublic) return NextResponse.next();
 

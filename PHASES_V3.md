@@ -193,21 +193,65 @@ Note: langfuse-langchain excluded due to @langchain/core version conflict — pe
 
 ---
 
-## V3.2 — Tool Calling (planned)
+## V3.2 — Tool Calling
 **Status**: [ ] Not started
 
-Replace manual JSON parsing in Manager Node with native OpenAI tool calling. Add tool calling to four high-impact locations:
+Replaces manual JSON parsing in the Manager Node with native OpenAI
+tool calling via Vercel AI SDK generateText with tools. Adds tool
+calling to three additional high-impact locations. Introduces a
+sequential Yes/No confirmation flow in the chat UI for all write
+operations.
 
-1. Manager Node — four tools defined with Zod schemas: run_financial_statement, run_payroll, compute_tax, generate_financial_model. LLM selects and parameterises tools directly instead of returning parsed JSON.
+### Key design decisions (locked)
+- Tool calling uses Vercel AI SDK generateText with tools — same SDK
+  already in use, no new dependencies
+- Multi-intent: LLM can call multiple tools in one message pass —
+  each tool call is processed sequentially
+- Write operations (add employee, add client, configure tax) require
+  explicit Yes/No confirmation from user before execution
+- Confirmation UI: inline Yes/No button card in chat, sequential —
+  one pending action at a time
+- FS configuration via agent already works through existing corrections
+  pipeline — no new tool needed
+- All financial arithmetic remains bignumber.js
 
-2. RAG Chatbot — two tools: query_knowledge_base (retrieves SFRS/CPF/tax regulations before answering) and submit_correction (LLM calls tool directly to write to corrections table, closing the correction loop).
+### New tools defined
 
-3. Tax Agent — two tools: identify_tax_adjustments (suggests applicable SG tax adjustments from classified accounts) and check_startup_eligibility (derives is_new_startup from entity incorporation date instead of defaulting to false).
+| Tool | Purpose | Confirmation required |
+|---|---|---|
+| run_financial_statement | Trigger FS workflow | No |
+| run_payroll | Trigger payroll workflow | No |
+| compute_tax | Trigger tax computation | No |
+| generate_financial_model | Trigger financial model | No |
+| query_knowledge_base | Query RAG vector store | No |
+| identify_tax_adjustments | Propose SG tax adjustments | Yes |
+| add_employee | Create employee record | Yes |
+| update_employee | Update employee record | Yes |
+| add_client | Create new client schema | Yes |
+| configure_tax | Set accounting_profit and revenue overrides | Yes |
 
-4. Financial Statement Generation — two tools: apply_sfrs_disclosure (retrieves exact SFRS disclosure requirements from RAG before writing each note) and validate_classification (cross-checks account classifications against SFRS rules).
+### Schema change
+Add two nullable override fields to entities table in buildSchemaSQL():
+- accounting_profit_override NUMERIC(15,2)
+- revenue_override NUMERIC(15,2)
 
-Estimated effort: 1.5 to 2 weeks of Claude Code sessions.
-FS generation changes are highest risk — require careful prompt engineering and thorough testing.
+Tax agent route checks overrides first, falls back to derived values
+if null.
+
+### New graph state fields
+- pendingAction: object | undefined — proposed action details written
+  by Manager Node when a confirmation-required tool is called
+- pendingActionConfirmed: boolean | undefined — set by user Yes/No
+  response before graph resumes
+
+### Implementation steps
+- [x] V3.2-A — Manager Node multi-intent tool calling
+- V3.2-B — RAG Chatbot query_knowledge_base tool
+- V3.2-C — Tax Agent identify_tax_adjustments + check_startup_eligibility
+- V3.2-D — Action tools: add/update employee, add client
+- V3.2-E — Tax profit/revenue override (schema change + configure_tax tool)
+- [x] V3.2-F — Confirmation UI component
+- V3.2-G — PHASES_V3.md update
 
 ---
 
@@ -221,3 +265,5 @@ FS generation changes are highest risk — require careful prompt engineering an
 - [x] Known gaps — placeholder text, chat UI polish, post-completion guidance, output transparency, download capability — left panel auto-load
 - [x] V3.1 — Obsidian knowledge store (local dev only)
 - [ ] V3.2 — Tool calling (4 high impact locations)
+  - [x] V3.2-F — Confirmation UI component
+  - [x] V3.2-A — Manager Node multi-intent tool calling

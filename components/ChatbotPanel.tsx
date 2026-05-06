@@ -42,6 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { detectAgentIntent } from "@/lib/agents/intentDetector"; // rule-based workflow intent detector
 import { AgentProgressPanel } from "@/components/AgentProgressPanel"; // per-node progress UI
+import { ConfirmationCard } from "@/components/ConfirmationCard";     // inline yes/no card for write actions
 
 // Message types displayed in the chat area
 type MessageRole = "user" | "assistant" | "system";
@@ -68,6 +69,63 @@ interface ChatbotPanelProps {
   // Passed up to page.tsx, which stores the runs and passes them to WorkflowPanel
   // so each workflow component can auto-load its agent-generated result.
   onAgentComplete?: (runs: Array<{ workflow: string; runId: string }>) => void;
+}
+
+// ── Agent SSE helper ──────────────────────────────────────────────────────────
+// Shared SSE parsing logic — used by both handleSend (initial agent run) and
+// handleConfirm (re-invocation after action confirmation).
+interface AgentSSEHandlers {
+  onNodeStarted:                (nodeName: string) => void;
+  onNodeComplete:               (nodeName: string) => void;
+  onNodeError:                  (nodeName: string, error: string) => void;
+  onValidationMissing:          (fields: string[]) => void;
+  onActionConfirmationRequired: (action: { tool: string; params: Record<string, unknown>; description: string }) => void;
+  onActionExecuted:             (message: string) => void;
+  onGraphComplete:              (summary: string, completedRuns: Array<{ workflow: string; runId: string; projectionPeriodYears?: number }>, executedAction?: string) => void;
+  onGraphError:                 (error: string) => void;
+}
+
+async function consumeAgentSSE(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  handlers: AgentSSEHandlers,
+): Promise<void> {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line.startsWith("data: ")) continue;
+      let payload: { event: string; data: Record<string, unknown> };
+      try { payload = JSON.parse(line.slice("data: ".length)); } catch { continue; }
+      const { event, data } = payload;
+      if (event === "node:started") {
+        handlers.onNodeStarted(data.node as string);
+      } else if (event === "node:complete") {
+        handlers.onNodeComplete(data.node as string);
+      } else if (event === "node:error") {
+        handlers.onNodeError(data.node as string, data.error as string);
+      } else if (event === "validation:missing") {
+        handlers.onValidationMissing(data.fields as string[]);
+      } else if (event === "action:confirmation_required") {
+        handlers.onActionConfirmationRequired(data.action as { tool: string; params: Record<string, unknown>; description: string });
+      } else if (event === "action:executed") {
+        handlers.onActionExecuted(data.message as string);
+      } else if (event === "graph:complete") {
+        handlers.onGraphComplete(
+          (data.summary as string) || "",
+          (data.completedRuns as Array<{ workflow: string; runId: string; projectionPeriodYears?: number }>) || [],
+          data.executedAction as string | undefined,
+        );
+      } else if (event === "graph:error") {
+        handlers.onGraphError(data.error as string);
+      }
+    }
+  }
 }
 
 // Single welcome message shown on load — replaces the old dummy conversation
@@ -136,6 +194,29 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
 
   // True while the SSE stream from /api/agent is still open
   const [isAgentRunning, setIsAgentRunning] = useState(false);
+
+  // Pending write action proposed by the agent — set by action:confirmation_required
+  // SSE event; cleared when the user clicks Confirm or Cancel, or sends a new message.
+  const [pendingAction, setPendingAction] = useState<{
+    tool:        string;
+    params:      Record<string, unknown>;
+    description: string;
+  } | null>(null);
+
+  // True while /api/agent/confirm is being called after the user clicks Confirm.
+  // Drives the loading spinner inside ConfirmationCard.
+  const [isConfirmationLoading, setIsConfirmationLoading] = useState(false);
+
+  // ── Agent goal + temporal params (V3.2-B) ────────────────────────────────
+  // Captured from handleSend when routing to /api/agent; preserved here so
+  // handleConfirm can re-invoke the graph with the same context after an action
+  // is confirmed without asking the user to repeat themselves.
+  const [agentGoal,                 setAgentGoal]                 = useState<string>("");
+  const [agentFinancialYear,        setAgentFinancialYear]        = useState<string | undefined>(undefined);
+  const [agentPayrollMonth,         setAgentPayrollMonth]         = useState<number | undefined>(undefined);
+  const [agentPayrollYear,          setAgentPayrollYear]          = useState<number | undefined>(undefined);
+  const [agentYearOfAssessment,     setAgentYearOfAssessment]     = useState<string | undefined>(undefined);
+  const [agentProjectionPeriodYears, setAgentProjectionPeriodYears] = useState<number | undefined>(undefined);
 
   // Hidden file input — triggered programmatically when the button is clicked
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -220,6 +301,16 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
     setAgentMissingInputs([]);
     setAgentSummary(null);
     setIsAgentRunning(false);
+    // Also clear any outstanding confirmation card — a new message supersedes it
+    setPendingAction(null);
+    setIsConfirmationLoading(false);
+    // Reset preserved goal + temporal params — will be re-set below if isAgentGoal
+    setAgentGoal("");
+    setAgentFinancialYear(undefined);
+    setAgentPayrollMonth(undefined);
+    setAgentPayrollYear(undefined);
+    setAgentYearOfAssessment(undefined);
+    setAgentProjectionPeriodYears(undefined);
 
     // ── Intent check ────────────────────────────────────────────────────────
     const intent = detectAgentIntent(message);
@@ -252,6 +343,15 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
       setAgentNodes(initialNodes);
       setIsAgentRunning(true);
 
+      // Preserve goal + temporal params so handleConfirm can re-invoke the graph
+      // with the same context after the user confirms an action tool call.
+      setAgentGoal(message);
+      setAgentFinancialYear(intent.financialYear);
+      setAgentPayrollMonth(intent.payrollMonth);
+      setAgentPayrollYear(intent.payrollYear);
+      setAgentYearOfAssessment(intent.yearOfAssessment);
+      setAgentProjectionPeriodYears(intent.projectionPeriodYears);
+
       try {
         // POST to the agent route with the goal + clientId + all extracted fields
         const response = await fetch("/api/agent", {
@@ -279,90 +379,39 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
           return;
         }
 
-        // Read the SSE stream line-by-line using a text decoder
-        const reader  = response.body.getReader();
-        const decoder = new TextDecoder();
-        let   buffer  = "";   // accumulates partial SSE lines between chunks
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;  // stream closed by server after graph:complete or graph:error
-
-          // Append the decoded chunk to our line buffer
-          buffer += decoder.decode(value, { stream: true });
-
-          // SSE lines are separated by "\n\n"; split and process each complete event
-          const parts = buffer.split("\n\n");
-          // The last element may be an incomplete line — keep it in the buffer
-          buffer = parts.pop() ?? "";
-
-          for (const part of parts) {
-            // Each part is "data: <json>" — strip the "data: " prefix
-            const line = part.trim();
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice("data: ".length);
-
-            let payload: { event: string; data: Record<string, unknown> };
-            try {
-              payload = JSON.parse(jsonStr);
-            } catch {
-              continue;  // skip malformed lines
+        const reader = response.body.getReader();
+        await consumeAgentSSE(reader, {
+          onNodeStarted: (nodeName) => {
+            setAgentNodes((prev) => prev.map((n) => n.name === nodeName ? { ...n, status: "running" } : n));
+          },
+          onNodeComplete: (nodeName) => {
+            setAgentNodes((prev) => prev.map((n) => n.name === nodeName ? { ...n, status: "complete" } : n));
+          },
+          onNodeError: (nodeName, errorMsg) => {
+            setAgentNodes((prev) => prev.map((n) => n.name === nodeName ? { ...n, status: "error", error: errorMsg } : n));
+          },
+          onValidationMissing: (fields) => {
+            setAgentMissingInputs(fields);
+          },
+          onActionConfirmationRequired: (actionPayload) => {
+            setPendingAction(actionPayload);
+          },
+          onActionExecuted: (msg) => {
+            appendMessage("system", `✅ ${msg}`);
+          },
+          onGraphComplete: (summary, completedRuns) => {
+            setAgentSummary(summary || null);
+            setIsAgentRunning(false);
+            if (completedRuns.length > 0) {
+              onAgentComplete?.(completedRuns);
             }
-
-            const { event, data } = payload;
-
-            if (event === "node:started") {
-              // Mark the named node as running — spinner appears in the panel
-              const nodeName = data.node as string;
-              setAgentNodes((prev) =>
-                prev.map((n) =>
-                  n.name === nodeName ? { ...n, status: "running" } : n
-                )
-              );
-
-            } else if (event === "node:complete") {
-              // Node finished cleanly — flip it to complete
-              const nodeName = data.node as string;
-              setAgentNodes((prev) =>
-                prev.map((n) =>
-                  n.name === nodeName ? { ...n, status: "complete" } : n
-                )
-              );
-
-            } else if (event === "node:error") {
-              // Node failed — record the error message alongside the status
-              const nodeName  = data.node as string;
-              const errorMsg  = data.error as string;
-              setAgentNodes((prev) =>
-                prev.map((n) =>
-                  n.name === nodeName
-                    ? { ...n, status: "error", error: errorMsg }
-                    : n
-                )
-              );
-
-            } else if (event === "validation:missing") {
-              // Required inputs were missing — panel will show the prompt message
-              setAgentMissingInputs(data.fields as string[]);
-
-            } else if (event === "graph:complete") {
-              // Graph finished — store the summary and close the running state
-              setAgentSummary((data.summary as string) || null);
-              setIsAgentRunning(false);
-              // Pass completedRuns up to page.tsx so WorkflowPanel can auto-load
-              // the left-panel workflow component for each completed workflow.
-              // completedRuns is present only when at least one worker node succeeded.
-              if (Array.isArray(data.completedRuns) && data.completedRuns.length > 0) {
-                onAgentComplete?.(data.completedRuns as Array<{ workflow: string; runId: string }>);
-              }
-
-            } else if (event === "graph:error") {
-              // Unhandled error in graph execution — show in chat as a system message
-              appendMessage("system", `❌ Agent error: ${data.error as string}`);
-              setIsAgentRunning(false);
-            }
-          }
-        }
+            // executedAction not present on the initial agent route — no action needed here
+          },
+          onGraphError: (error) => {
+            appendMessage("system", `❌ Agent error: ${error}`);
+            setIsAgentRunning(false);
+          },
+        });
 
       } catch {
         appendMessage("system", "❌ Network error — could not reach /api/agent.");
@@ -398,6 +447,150 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
     } finally {
       setIsSending(false);
     }
+  }
+
+  /**
+   * Called when the user clicks Confirm on the ConfirmationCard.
+   *
+   * POSTs to /api/agent/confirm with the full preserved agent context so the
+   * confirm route can execute the action and optionally re-invoke the graph for
+   * any workflows the user also requested. Consumes the SSE response stream with
+   * the shared consumeAgentSSE helper — same event handling as handleSend.
+   */
+  async function handleConfirm() {
+    if (!pendingAction) return;
+
+    // Capture before clearing state — used in the fetch body below
+    const action = pendingAction;
+
+    // Clear the card immediately; show spinner in the Confirm button
+    setPendingAction(null);
+    setIsConfirmationLoading(true);
+
+    // Derive workflow flags from the node list built during handleSend
+    const runFS             = agentNodes.some((n) => n.name === "financialStatementNode");
+    const runPayroll        = agentNodes.some((n) => n.name === "payrollNode");
+    const runTax            = agentNodes.some((n) => n.name === "taxNode");
+    const runFinancialModel = agentNodes.some((n) => n.name === "financialModelNode");
+
+    // Reset progress panel for the re-invocation run
+    setAgentSummary(null);
+    setIsAgentRunning(true);
+    const reInvokeNodes: AgentNodeEntry[] = [
+      { name: "validationNode", status: "pending" },
+      { name: "managerNode",    status: "pending" },
+      ...(runFS             ? [{ name: "financialStatementNode", status: "pending" as NodeStatus }] : []),
+      ...(runPayroll        ? [{ name: "payrollNode",            status: "pending" as NodeStatus }] : []),
+      ...(runTax            ? [{ name: "taxNode",                status: "pending" as NodeStatus }] : []),
+      ...(runFinancialModel ? [{ name: "financialModelNode",     status: "pending" as NodeStatus }] : []),
+      { name: "summaryNode", status: "pending" },
+    ];
+    setAgentNodes(reInvokeNodes);
+
+    try {
+      const res = await fetch("/api/agent/confirm", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          confirmed:             true,
+          action,
+          clientId:              schemaName,
+          goal:                  agentGoal,
+          runFS,
+          runPayroll,
+          runTax,
+          runFinancialModel,
+          financialYear:         agentFinancialYear,
+          payrollMonth:          agentPayrollMonth,
+          payrollYear:           agentPayrollYear,
+          yearOfAssessment:      agentYearOfAssessment,
+          projectionPeriodYears: agentProjectionPeriodYears,
+        }),
+      });
+
+      if (!res.ok || !res.body) {
+        // Non-2xx before the stream opens (action execution failed)
+        const result = await res.json() as { error?: string };
+        appendMessage("system", `❌ Confirm error: ${result.error ?? "Unknown error"}`);
+        setIsAgentRunning(false);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      await consumeAgentSSE(reader, {
+        onNodeStarted: (nodeName) => {
+          setAgentNodes((prev) => prev.map((n) => n.name === nodeName ? { ...n, status: "running" } : n));
+        },
+        onNodeComplete: (nodeName) => {
+          setAgentNodes((prev) => prev.map((n) => n.name === nodeName ? { ...n, status: "complete" } : n));
+        },
+        onNodeError: (nodeName, errorMsg) => {
+          setAgentNodes((prev) => prev.map((n) => n.name === nodeName ? { ...n, status: "error", error: errorMsg } : n));
+        },
+        onValidationMissing: (fields) => {
+          setAgentMissingInputs(fields);
+        },
+        onActionConfirmationRequired: (actionPayload) => {
+          setPendingAction(actionPayload);
+        },
+        onActionExecuted: (msg) => {
+          appendMessage("system", `✅ ${msg}`);
+        },
+        onGraphComplete: (summary, completedRuns, executedAction) => {
+          setAgentSummary(summary || null);
+          setIsAgentRunning(false);
+          if (completedRuns.length > 0) {
+            onAgentComplete?.(completedRuns);
+          }
+          // Action-only completion (no workflow re-invocation): if the confirmed action
+          // was add_employee or update_employee, trigger a PayrollWorkflow employee list
+          // re-fetch via a sentinel runId so the new employee appears immediately.
+          if (
+            (executedAction === "add_employee" || executedAction === "update_employee") &&
+            completedRuns.length === 0
+          ) {
+            onAgentComplete?.([{ workflow: "payroll", runId: "refresh" }]);
+          }
+        },
+        onGraphError: (error) => {
+          appendMessage("system", `❌ Agent error: ${error}`);
+          setIsAgentRunning(false);
+        },
+      });
+
+    } catch {
+      appendMessage("system", "❌ Network error — could not reach /api/agent/confirm.");
+      setIsAgentRunning(false);
+    } finally {
+      setIsConfirmationLoading(false);
+    }
+  }
+
+  /**
+   * Called when the user clicks Cancel on the ConfirmationCard.
+   * Clears the card immediately, then fires a fire-and-forget POST to
+   * /api/agent/confirm with confirmed:false so the server can clean up state.
+   */
+  function handleCancel() {
+    if (!pendingAction) return;              // guard: nothing to cancel
+
+    // Capture the action before nulling state — the fetch below closes over it
+    const cancelledAction = pendingAction;
+
+    // Clear the card immediately — no loading state needed for cancel
+    setPendingAction(null);
+
+    // Fire-and-forget: inform the server the action was rejected.
+    // void — does not block the UI; server-side no-op in the current stub.
+    void fetch("/api/agent/confirm", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        confirmed: false,
+        action:    cancelledAction,          // action that was cancelled
+        clientId:  schemaName,
+      }),
+    });
   }
 
   /**
@@ -464,6 +657,19 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
             missingInputs={agentMissingInputs}
             summary={agentSummary}
             isRunning={isAgentRunning}
+          />
+        )}
+
+        {/* ── Confirmation card (V3.2-F) ────────────────────────────────────
+            Rendered below AgentProgressPanel when the agent proposes a write
+            action that requires user approval (e.g. add_employee, add_client).
+            Cleared when the user clicks Confirm or Cancel, or sends a new message. */}
+        {pendingAction !== null && (
+          <ConfirmationCard
+            action={pendingAction}
+            onConfirm={handleConfirm}
+            onCancel={handleCancel}
+            isLoading={isConfirmationLoading}
           />
         )}
       </div>

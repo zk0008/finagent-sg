@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { verifySchemaAccess } from "@/lib/schemaAccess";  // schema isolation guard — required on all employee handlers
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
@@ -23,6 +24,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { error: "schemaName and entity_id query parameters are required" },
       { status: 400 }
     );
+  }
+
+  // Confirm schemaName is registered before touching any client data
+  const allowed = await verifySchemaAccess(schemaName);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { data, error } = await supabase
@@ -66,6 +73,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { error: "schemaName, entity_id, name, dob, citizenship, and monthly_salary are required" },
       { status: 400 }
     );
+  }
+
+  // Confirm schemaName is registered before writing any employee record
+  const postAllowed = await verifySchemaAccess(schemaName);
+  if (!postAllowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { data, error } = await supabase

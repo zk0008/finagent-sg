@@ -63,6 +63,20 @@ export const AgentStateSchema = z.object({
   // Written to state so agent/route.ts can include it in the Langfuse trace.
   vaultContext: z.string(),
 
+  // Proposed write action awaiting user confirmation — set by Manager Node when a
+  // confirmation-required tool (e.g. add_employee) is called. Cleared after the
+  // user responds via the ConfirmationCard. Contains the tool name, full params,
+  // and a plain-English description shown in the card.
+  pendingAction: z.object({
+    tool:        z.string(),                 // e.g. "add_employee"
+    params:      z.record(z.string(), z.unknown()),  // full params the tool will execute with
+    description: z.string(),                // plain English shown to user e.g. "Add employee John Tan..."
+  }).optional(),
+
+  // Set by the user's Yes/No response to a pendingAction confirmation card.
+  // True = user confirmed, false = user cancelled. Undefined until user responds.
+  pendingActionConfirmed: z.boolean().optional(),
+
   // Final human-readable summary produced by the Summary node, posted to chat
   summary: z.string().optional(),
 });
@@ -184,6 +198,22 @@ export const GraphState = Annotation.Root({
   vaultContext: Annotation<string>({
     reducer: (_prev: string, next: string) => next,  // last-write-wins
     default: () => "",                                 // empty until managerNode runs
+  }),
+
+  // Proposed write action awaiting user confirmation — written by Manager Node when a
+  // confirmation-required tool is invoked. Cleared after the user responds.
+  // Carries the tool name, full execution params, and a plain-English description
+  // that the ConfirmationCard shows to the user before they decide.
+  pendingAction: Annotation<{ tool: string; params: Record<string, unknown>; description: string } | undefined>({
+    reducer: (_prev, next) => next,          // last-write-wins: clear by writing undefined
+    default: () => undefined,               // starts undefined — no action pending
+  }),
+
+  // Result of the user's Yes/No response to a ConfirmationCard.
+  // true = confirmed, false = cancelled, undefined = not yet answered.
+  pendingActionConfirmed: Annotation<boolean | undefined>({
+    reducer: (_prev, next) => next,          // last-write-wins
+    default: () => undefined,               // starts undefined — awaiting response
   }),
 
   // Final summary text; undefined until the Summary node writes it

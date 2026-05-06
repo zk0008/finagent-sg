@@ -18,8 +18,9 @@
  * (e.g. "techsoft_pte_ltd"). It is set by the graph caller at invoke time.
  */
 
-import { generateText } from "ai";
+import { generateText, tool } from "ai";           // tool() defines typed tool schemas for managerNode
 import { openai } from "@ai-sdk/openai";
+import { z } from "zod";                             // Zod schemas used in tool parameter definitions below
 import { MODEL_ROUTES } from "@/lib/modelRouter";
 import { supabase } from "@/lib/supabaseClient";  // used by taxNode and financialModelNode Supabase fallback
 import { GraphState } from "../state";
@@ -145,74 +146,279 @@ export async function validationNode(state: State): Promise<NodeReturn> {
   return { missingInputs: [] };
 }
 
+// ─── Tool definitions (used by managerNode) ──────────────────────────────────
+// Defined at module scope so they are not recreated on each managerNode call.
+// No execute functions — tool calls are dispatched manually from result.toolCalls.
+
+// Triggers financial statement generation; args carry the target fiscal year
+const runFinancialStatementTool = tool({
+  description:
+    "Trigger financial statement generation for a client. Use when the user wants to " +
+    "prepare, generate, or create financial statements or a trial balance for a specific financial year.",
+  inputSchema: z.object({
+    financialYear: z.string().describe("The financial year e.g. '2025'"),
+  }),
+});
+
+// Triggers payroll processing; args carry month (1–12) and year
+const runPayrollTool = tool({
+  description:
+    "Trigger payroll processing for a client. Use when the user wants to run, process, " +
+    "or generate payroll or CPF contributions for a specific month and year.",
+  inputSchema: z.object({
+    payrollMonth: z.number().min(1).max(12).describe("Month as number 1-12"),
+    payrollYear:  z.number().describe("Year e.g. 2026"),
+  }),
+});
+
+// Triggers corporate tax computation; args carry the year of assessment string
+const computeTaxTool = tool({
+  description:
+    "Trigger corporate tax computation for a client. Use when the user wants to compute, " +
+    "calculate, or prepare corporate tax or Form C for a specific year of assessment.",
+  inputSchema: z.object({
+    yearOfAssessment: z.string().describe("Year of assessment e.g. 'YA2026'"),
+  }),
+});
+
+// Triggers financial model projection; args carry how many years to project
+const generateFinancialModelTool = tool({
+  description:
+    "Trigger financial model and projection generation for a client. Use when the user wants " +
+    "to generate, create, or build a financial model, projections, scenarios, or forecasts.",
+  inputSchema: z.object({
+    projectionPeriodYears: z.number().min(1).max(10).describe("Number of years to project e.g. 3 or 5"),
+  }),
+});
+
+// Action tool — requires user confirmation; adds a new employee record
+const addEmployeeTool = tool({
+  description:
+    "Add a new employee record for the client. Use when the user wants to add, create, or " +
+    "register a new employee. Requires confirmation before executing.",
+  inputSchema: z.object({
+    name:          z.string().describe("Full name of the employee"),
+    dob:           z.string().describe("Date of birth in YYYY-MM-DD format"),
+    citizenship:   z.enum(["Singapore Citizen", "Singapore PR", "Foreigner"])
+                     .describe("Citizenship status"),
+    monthlySalary: z.number().describe("Monthly salary in SGD"),
+    nricFin:       z.string().optional().describe("NRIC or FIN number if provided"),
+  }),
+});
+
+// Action tool — requires user confirmation; updates an existing employee record
+const updateEmployeeTool = tool({
+  description:
+    "Update an existing employee record. Use when the user wants to update, change, or " +
+    "modify an employee's details. Requires confirmation before executing.",
+  inputSchema: z.object({
+    employeeId:    z.string().describe("UUID of the employee to update"),
+    name:          z.string().optional(),
+    dob:           z.string().optional().describe("Date of birth in YYYY-MM-DD format"),
+    citizenship:   z.enum(["Singapore Citizen", "Singapore PR", "Foreigner"]).optional(),
+    monthlySalary: z.number().optional(),
+    nricFin:       z.string().optional(),
+  }),
+});
+
+// Action tool — requires user confirmation; creates a new client record
+const addClientTool = tool({
+  description:
+    "Create a new client. Use when the user wants to add, register, or onboard a new company " +
+    "as a client. Requires confirmation before executing.",
+  inputSchema: z.object({
+    companyName:  z.string().describe("Full company name"),
+    uen:          z.string().describe("UEN number"),
+    companyType:  z.string().describe("Company type e.g. 'Private Limited'"),
+    fyeDate:      z.string().describe("Financial year end date in YYYY-MM-DD format"),
+    auditExempt:  z.boolean().describe("Whether the company is audit exempt"),
+  }),
+});
+
+// Action tool — requires user confirmation; overrides profit/revenue used in tax computation
+const configureTaxTool = tool({
+  description:
+    "Override the accounting profit and/or revenue used for tax computation. Use when the user " +
+    "wants to set, override, or configure the accounting profit or annual revenue for tax purposes. " +
+    "Requires confirmation before executing.",
+  inputSchema: z.object({
+    accountingProfitOverride: z.number().optional()
+      .describe("Override value for accounting profit in SGD"),
+    revenueOverride:          z.number().optional()
+      .describe("Override value for annual revenue in SGD"),
+  }),
+});
+
+// ─── buildDescription helper ──────────────────────────────────────────────────
+
+/**
+ * Builds a plain-English description of a confirmation-required action tool call.
+ * This string is shown in the ConfirmationCard so the user understands what they
+ * are approving before any data is written to Supabase.
+ */
+function buildDescription(toolName: string, args: Record<string, unknown>): string {
+  switch (toolName) {
+    case "add_employee": {
+      // Cast to the known add_employee arg shape
+      const a = args as { name: string; citizenship: string; dob: string; monthlySalary: number };
+      return `Add employee ${a.name}, ${a.citizenship}, DOB ${a.dob}, monthly salary SGD ${a.monthlySalary}`;
+    }
+    case "update_employee": {
+      // Show the employee ID plus all fields the caller wants to change
+      const a = args as { employeeId: string };
+      const changedFields = Object.entries(args)
+        .filter(([k]) => k !== "employeeId")          // exclude the ID itself from the change list
+        .map(([k, v]) => `${k}: ${String(v)}`)
+        .join(", ");
+      return `Update employee ${a.employeeId} with: ${changedFields}`;
+    }
+    case "add_client": {
+      const a = args as { companyName: string; uen: string; fyeDate: string; auditExempt: boolean };
+      return `Create new client ${a.companyName} (UEN: ${a.uen}), FYE ${a.fyeDate}, audit exempt: ${String(a.auditExempt)}`;
+    }
+    case "configure_tax": {
+      const a = args as { accountingProfitOverride?: number; revenueOverride?: number };
+      // Show "unchanged" when the field was omitted rather than a misleading SGD 0
+      const profit  = a.accountingProfitOverride !== undefined ? `SGD ${a.accountingProfitOverride}` : "unchanged";
+      const revenue = a.revenueOverride          !== undefined ? `SGD ${a.revenueOverride}`          : "unchanged";
+      return `Set tax override — accounting profit: ${profit}, revenue: ${revenue}`;
+    }
+    default:
+      // Fallback for any future action tool not yet handled here
+      return `Execute ${toolName}`;
+  }
+}
+
 // ─── Node 2: Manager Node ────────────────────────────────────────────────────
 
 /**
- * Parses the user's natural language goal using GPT-4.1 and writes the extracted
- * run flags and temporal parameters back into graph state.
- * Uses the same model identifier as FS generation (accuracy-critical routing).
+ * Parses the user's natural language goal using GPT-4.1 tool calling and writes
+ * the resulting run flags and temporal parameters back into graph state.
+ * Replaces the previous manual JSON-parsing approach with native Vercel AI SDK
+ * tool calling — the LLM calls one or more tools in a single pass to handle
+ * multi-intent goals (e.g. "run payroll and tax"). Action tools that require
+ * user confirmation write a pendingAction to state instead of executing directly.
  */
 export async function managerNode(state: State): Promise<NodeReturn> {
   // ── V3.1: Read recent vault notes for this client ────────────────────────
-  // Fetches the last 5 run notes from the local vault (returns "" if vault is
-  // unavailable or the client has no prior notes — safe to call unconditionally).
+  // Returns "" if vault is unavailable or the client has no prior notes — safe
+  // to call unconditionally. The string is injected into the system prompt below.
   const recentNotes = await getRecentVaultNotes(state.clientId, 5);
 
-  // Change 4 — single log line so the Next.js server terminal shows whether
-  // vault context was injected, without logging any sensitive note content
+  // Single log line — shows whether vault context was injected without logging note content
   console.log(
     `[managerNode] vault context for ${state.clientId}:`,
     recentNotes ? `${recentNotes.length} chars loaded` : "empty — no prior runs"
   );
 
-  // System prompt instructs the LLM to return only JSON — no markdown, no commentary
-  const systemPromptBase = `You are a compliance workflow manager for a Singapore private limited company accounting system. Given a user goal, extract the following as JSON and nothing else:
-- runFS: boolean — true if goal involves financial statements or trial balance
-- runPayroll: boolean — true if goal involves payroll or CPF
-- runTax: boolean — true if goal involves corporate tax or Form C
-- runFinancialModel: boolean — true if goal involves financial model, projections or scenarios
-- financialYear: string or null — e.g. '2025'
-- payrollMonth: number or null — 1 to 12
-- payrollYear: number or null — e.g. 2025
-- yearOfAssessment: string or null — e.g. 'YA2026'
-- projectionPeriodYears: number or null — e.g. 3
-Respond with valid JSON only. No explanation, no markdown.`;
+  // ── V3.2-A: Tool-calling system prompt ──────────────────────────────────
+  // Instructs the LLM to call tools (not return JSON) — multi-intent goals can
+  // trigger multiple tool calls in a single pass (e.g. run_payroll + compute_tax).
+  const systemPrompt =
+    "You are a compliance workflow manager for a Singapore private limited company accounting system. " +
+    "Given a user goal, call the appropriate tools to fulfil the request. You may call multiple tools if the goal requires it.\n" +
+    "Call tools in logical order — if financial statements are needed before tax, call run_financial_statement before compute_tax.\n" +
+    "For tools that require confirmation (add_employee, update_employee, add_client, configure_tax), call them and they will be queued " +
+    "for user confirmation before execution." +
+    (recentNotes ? "\n\nHere are the last runs for this client:\n\n" + recentNotes : "");
 
-  // Append vault context to the system prompt only when prior notes exist.
-  // Injected into the system message so it informs goal parsing without
-  // appearing in the user-visible conversation or polluting the JSON output.
-  const systemPrompt = recentNotes
-    ? systemPromptBase +
-      "\n\nHere are the last runs for this client for your context. Use this to inform your understanding of the client's workflows and preferences. Do not repeat this information back to the user:\n\n" +
-      recentNotes
-    : systemPromptBase;
-
-  let parsed: {
-    runFS:                 boolean;
-    runPayroll:            boolean;
-    runTax:                boolean;
-    runFinancialModel:     boolean;
-    financialYear:         string | null;
-    payrollMonth:          number | null;
-    payrollYear:           number | null;
-    yearOfAssessment:      string | null;
-    projectionPeriodYears: number | null;
-  };
+  // ── Accumulators — populated by iterating over result.toolCalls ──────────
+  // Workflow flags: may be set by multiple tool calls (e.g. payroll + tax in one pass)
+  let runFS             = false;
+  let runPayroll        = false;
+  let runTax            = false;
+  let runFinancialModel = false;
+  // Temporal parameters: set by the matching workflow tool call
+  let financialYear:         string | undefined;
+  let payrollMonth:          number | undefined;
+  let payrollYear:           number | undefined;
+  let yearOfAssessment:      string | undefined;
+  let projectionPeriodYears: number | undefined;
+  // Action tool result: only the first action tool call is queued (sequential confirmation)
+  let pendingAction: { tool: string; params: Record<string, unknown>; description: string } | undefined;
 
   try {
-    // generateText returns raw text; we parse it as JSON ourselves
-    const { text } = await generateText({
-      model:  openai(MODEL_ROUTES.fs_generation),  // "gpt-4.1" — accuracy critical routing
+    // ── Call GPT-4.1 with all 8 tools; LLM decides which ones to invoke ──────
+    // maxSteps: 5 allows the model up to 5 sequential passes if it needs to
+    // chain tool calls, though in practice a single pass covers all use cases.
+    const result = await generateText({
+      model:  openai(MODEL_ROUTES.fs_generation),  // "gpt-4.1" — accuracy-critical routing
       system: systemPrompt,
-      prompt: state.goal,   // the user's natural language goal goes here
+      prompt: state.goal,                           // the user's natural language goal
+      tools: {
+        run_financial_statement: runFinancialStatementTool,
+        run_payroll:             runPayrollTool,
+        compute_tax:             computeTaxTool,
+        generate_financial_model: generateFinancialModelTool,
+        add_employee:            addEmployeeTool,
+        update_employee:         updateEmployeeTool,
+        add_client:              addClientTool,
+        configure_tax:           configureTaxTool,
+      },
     });
 
-    // Strip any accidental markdown code fences the model might add
-    const cleaned = text.replace(/```(?:json)?/g, "").trim();
-    parsed = JSON.parse(cleaned);
+    // ── Process each tool call the LLM made ──────────────────────────────────
+    // toolCalls is an array; the LLM may call zero, one, or many tools per pass.
+    // input (not args) is the field name in Vercel AI SDK v6.
+
+    // Skip action tools on re-invocation after confirmation — pendingActionConfirmed
+    // is set to true by /api/agent/confirm so managerNode does not re-queue the same
+    // action (e.g. add_employee) when the goal also includes a workflow (run_payroll).
+    // Workflow tool calls (run_payroll, etc.) are processed normally regardless.
+    const skipActionTools = state.pendingActionConfirmed === true;
+
+    for (const toolCall of result.toolCalls) {
+      const toolName = toolCall.toolName as string;          // which tool was called
+      const input    = toolCall.input as Record<string, unknown>;  // its typed arguments
+
+      if (toolName === "run_financial_statement") {
+        // Map FS tool input → graph state flags
+        runFS         = true;
+        financialYear = (input as { financialYear: string }).financialYear;
+
+      } else if (toolName === "run_payroll") {
+        // Map payroll tool input → graph state flags
+        runPayroll   = true;
+        payrollMonth = (input as { payrollMonth: number; payrollYear: number }).payrollMonth;
+        payrollYear  = (input as { payrollMonth: number; payrollYear: number }).payrollYear;
+
+      } else if (toolName === "compute_tax") {
+        // Map tax tool input → graph state flags
+        runTax            = true;
+        yearOfAssessment  = (input as { yearOfAssessment: string }).yearOfAssessment;
+
+      } else if (toolName === "generate_financial_model") {
+        // Map financial model tool input → graph state flags
+        runFinancialModel    = true;
+        projectionPeriodYears = (input as { projectionPeriodYears: number }).projectionPeriodYears;
+
+      } else if (
+        toolName === "add_employee"   ||
+        toolName === "update_employee" ||
+        toolName === "add_client"     ||
+        toolName === "configure_tax"
+      ) {
+        // Action tool — queue for user confirmation; do NOT execute immediately.
+        // Skip entirely on re-invocation after confirmation so the same action is
+        // not re-queued when the goal also contains a workflow (e.g. run_payroll).
+        if (skipActionTools) {
+          console.log(`[managerNode] skipping action tool ${toolName} — pendingActionConfirmed is true`);
+        } else if (!pendingAction) {
+          // First action tool call: build the confirmation card payload
+          pendingAction = {
+            tool:        toolName,
+            params:      input,
+            description: buildDescription(toolName, input),  // plain English shown in ConfirmationCard
+          };
+        } else {
+          // Subsequent action tool calls: skip — sequential confirmation handles one at a time
+          console.warn(`[managerNode] skipping additional action tool call: ${toolName}`);
+        }
+      }
+    }
 
   } catch (err) {
-    // If the LLM call or JSON parse fails, disable all workers and record the error
+    // LLM call failed — disable all workers and record the error
     return {
       runFS:             false,
       runPayroll:        false,
@@ -225,20 +431,42 @@ Respond with valid JSON only. No explanation, no markdown.`;
     };
   }
 
-  // Map null → undefined so the state fields stay as T | undefined (not null).
-  // vaultContext is written here so agent/route.ts can include it in the
-  // Langfuse trace — making vault context visible in the dashboard per run.
+  // ── If a pendingAction was set, return with all accumulated state ────────
+  // Workflow flags and temporal parameters extracted by the LLM are preserved
+  // so they are available in graph state when the graph is re-invoked after the
+  // user confirms. Workers are not triggered here because the graph edge in
+  // graph.ts checks pendingAction first and routes directly to summaryNode,
+  // bypassing the workflow flag checks entirely.
+  if (pendingAction) {
+    return {
+      runFS,              // preserved — graph edge skips workers via pendingAction check
+      runPayroll,
+      runTax,
+      runFinancialModel,
+      financialYear,
+      payrollMonth,
+      payrollYear,
+      yearOfAssessment,
+      projectionPeriodYears,
+      pendingAction,      // queued for ConfirmationCard in ChatbotPanel
+      vaultContext:  recentNotes,
+    };
+  }
+
+  // ── No action tool called — return accumulated workflow flags and parameters ─
+  // vaultContext is always written so agent/route.ts can include it in the Langfuse trace.
   return {
-    runFS:                 parsed.runFS,
-    runPayroll:            parsed.runPayroll,
-    runTax:                parsed.runTax,
-    runFinancialModel:     parsed.runFinancialModel,
-    financialYear:         parsed.financialYear         ?? undefined,
-    payrollMonth:          parsed.payrollMonth          ?? undefined,
-    payrollYear:           parsed.payrollYear           ?? undefined,
-    yearOfAssessment:      parsed.yearOfAssessment      ?? undefined,
-    projectionPeriodYears: parsed.projectionPeriodYears ?? undefined,
-    vaultContext:          recentNotes,  // "" when no prior runs; non-empty when notes loaded
+    runFS,
+    runPayroll,
+    runTax,
+    runFinancialModel,
+    financialYear,
+    payrollMonth,
+    payrollYear,
+    yearOfAssessment,
+    projectionPeriodYears,
+    pendingAction: undefined,  // explicitly clear any stale pendingAction from a prior run
+    vaultContext:  recentNotes,
   };
 }
 
@@ -606,6 +834,19 @@ export async function financialModelNode(state: State): Promise<NodeReturn> {
  */
 export async function summaryNode(state: State): Promise<NodeReturn> {
   const lines: string[] = [];
+
+  // ── Short-circuit when a confirmation is pending ─────────────────────────
+  // An action tool was called but requires user approval before execution.
+  // No workflows ran, so there are no results to summarise. Return a single
+  // informational message so the user understands the ConfirmationCard below.
+  // Vault note is intentionally skipped — nothing was executed this run.
+  if (state.pendingAction !== undefined) {
+    return {
+      summary:
+        "Action queued for your confirmation — please review and approve " +
+        "the request below before proceeding.",
+    };
+  }
 
   // ── Surface any missing inputs first ────────────────────────────────────
   if (state.missingInputs.length > 0) {

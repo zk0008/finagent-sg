@@ -188,6 +188,14 @@ export function PayrollWorkflow({
     const payEntry = agentCompletedRuns.find((r) => r.workflow === "payroll");
     if (!payEntry) return;
 
+    // Sentinel runId "refresh" — emitted by the confirm route after add_employee /
+    // update_employee when no workflow was re-invoked. Re-fetch the employee list
+    // so the new/updated employee appears immediately without jumping to Step 3.
+    if (payEntry.runId === "refresh") {
+      void fetchEmployees();
+      return;
+    }
+
     fetch(`/api/payroll/run/${payEntry.runId}?schemaName=${encodeURIComponent(schemaName)}`)
       .then((res) => res.ok ? res.json() : null)
       .then((data: {

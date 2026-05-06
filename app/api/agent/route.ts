@@ -104,6 +104,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     errors:              {},      // nodes write { nodeName: errorMessage } on failure
     fetchedContext:      {},      // nodes write plain-English descriptions of Supabase fetches
     vaultContext:        "",      // managerNode writes the notes string; "" until then
+    pendingAction:       undefined,          // set by managerNode when a write-action tool fires (V3.2-A)
+    pendingActionConfirmed: undefined,       // set by /api/agent/confirm after user responds (V3.2-A)
     summary:             undefined,
   };
 
@@ -131,6 +133,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 
       // Accumulate the final summary as it comes out of summaryNode
       let finalSummary: string | undefined;
+
+      // Accumulate pendingAction written by managerNode — emitted as a separate SSE event
+      // before graph:complete so the UI can render the ConfirmationCard before showing done.
+      let pendingAction: { tool: string; params: Record<string, unknown>; description: string } | undefined;
 
       // Accumulate vault context written by managerNode — included in Langfuse trace
       // input so the dashboard shows what prior run notes were available for each run.
@@ -212,6 +218,13 @@ export async function POST(req: NextRequest): Promise<Response> {
             vaultContext = nodeUpdate.vaultContext;
           }
 
+          // Capture pendingAction when managerNode writes one — only set when the LLM
+          // called an action tool (add_employee, update_employee, add_client, configure_tax).
+          // The undefined check ensures we only overwrite when a real action was queued.
+          if (nodeName === "managerNode" && nodeUpdate?.pendingAction !== undefined) {
+            pendingAction = nodeUpdate.pendingAction as typeof pendingAction;
+          }
+
           // ── Pick up run IDs per node for the completedRuns payload ──────
           // Each worker node writes its result to a different state field.
           // Safe casts: these fields are typed as `object | undefined` in GraphState.
@@ -265,6 +278,14 @@ export async function POST(req: NextRequest): Promise<Response> {
           // Use the value tracked from state; fall back to 3 if never set
           projectionPeriodYears: typeof agentProjectionYears === "number" ? agentProjectionYears : 3,
         });
+
+        // ── If an action tool was called, emit confirmation request first ──
+        // The UI listens for this event to render the ConfirmationCard. Emitting
+        // it before graph:complete ensures the card is shown before the "done" state
+        // so the user sees the confirmation prompt immediately after the graph finishes.
+        if (pendingAction !== undefined) {
+          send({ event: "action:confirmation_required", data: { action: pendingAction } });
+        }
 
         // ── Graph finished — emit the final completion event ─────────────
         send({
