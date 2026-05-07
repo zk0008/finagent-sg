@@ -210,11 +210,19 @@ const addEmployeeTool = tool({
 // Action tool — requires user confirmation; updates an existing employee record
 const updateEmployeeTool = tool({
   description:
-    "Update an existing employee record. Use when the user wants to update, change, or " +
+    "Update an existing employee record. Use when the user wants to update, change, edit, or " +
     "modify an employee's details. Requires confirmation before executing.",
   inputSchema: z.object({
-    employeeId:    z.string().describe("UUID of the employee to update"),
-    name:          z.string().optional(),
+    employeeId:   z.string().optional().describe(
+      // Optional — LLM usually only knows the employee name, not the DB UUID.
+      // When absent, confirm/route.ts resolves the UUID by querying the employees table.
+      "UUID of the employee — provide if known. If not known, leave empty and the system will look up the employee by name."
+    ),
+    employeeName: z.string().describe(
+      // Always required — used for the confirmation card message and name-based lookup
+      "Full name of the employee to update — always required for confirmation display and name-based lookup"
+    ),
+    name:          z.string().optional().describe("New full name if the name is being changed"),
     dob:           z.string().optional().describe("Date of birth in YYYY-MM-DD format"),
     citizenship:   z.enum(["Singapore Citizen", "Singapore PR", "Foreigner"]).optional(),
     monthlySalary: z.number().optional(),
@@ -310,13 +318,30 @@ function buildDescription(toolName: string, args: Record<string, unknown>): stri
       return `Add employee ${a.name}, ${a.citizenship}, DOB ${a.dob}, monthly salary SGD ${a.monthlySalary}`;
     }
     case "update_employee": {
-      // Show the employee ID plus all fields the caller wants to change
-      const a = args as { employeeId: string };
-      const changedFields = Object.entries(args)
-        .filter(([k]) => k !== "employeeId")          // exclude the ID itself from the change list
-        .map(([k, v]) => `${k}: ${String(v)}`)
+      // Show the employee name and each field being changed as "field → value"
+      const a = args as { employeeId?: string; employeeName: string; monthlySalary?: number };
+      // Build a human-readable list of the fields being updated (exclude ID and name fields used for lookup)
+      const FIELD_LABELS: Record<string, string> = {
+        name:          "name",
+        dob:           "date of birth",
+        citizenship:   "citizenship",
+        monthlySalary: "salary",    // show as "salary" not "monthlySalary" for readability
+        nricFin:       "NRIC/FIN",
+      };
+      const changedParts = Object.entries(args)
+        .filter(([k]) => k !== "employeeId" && k !== "employeeName" && k in FIELD_LABELS)
+        .map(([k, v]) => {
+          const label = FIELD_LABELS[k];
+          // Format salary with "SGD" prefix; other fields as plain string
+          const formatted = k === "monthlySalary"
+            ? `SGD ${Number(v).toLocaleString()}`
+            : String(v);
+          return `${label} → ${formatted}`;
+        })
         .join(", ");
-      return `Update employee ${a.employeeId} with: ${changedFields}`;
+      // Append UUID when the LLM provided it, so the confirmation card shows full context
+      const idSuffix = a.employeeId ? ` (ID: ${a.employeeId})` : "";
+      return `Update employee ${a.employeeName}${idSuffix}: ${changedParts || "no fields specified"}`;
     }
     case "add_client": {
       // Shows the key fields the user provided; setup reminder directs them to the Clients tab

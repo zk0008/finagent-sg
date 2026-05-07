@@ -290,6 +290,8 @@ operations.
 | identify_tax_adjustments | Propose SG tax adjustments | Yes |
 | add_employee | Create employee record | Yes |
 | update_employee | Update employee record | Yes |
+| delete_employee | Delete employee record | Yes |
+| update_employee (name resolution) | Update employee record with name-based UUID lookup | Yes |
 | add_client | Create new client schema | Yes |
 | configure_tax | Set accounting_profit and revenue overrides | Yes |
 
@@ -334,3 +336,4 @@ if null.
   - [x] V3.2-B — RAG Chatbot query_knowledge_base and submit_correction tools
   - [x] V3.2-A system prompt — reliable multi-intent dispatch with query_knowledge_base and submit_correction in Manager Node
   - [x] V3.2-D — Action tools: add/update/delete employee
+  - [x] V3.2-D fixes — update_employee name resolution, intentDetector salary keyword removal, correction routing fix, hint panel three-section update

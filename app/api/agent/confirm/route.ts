@@ -194,28 +194,65 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── update_employee ─────────────────────────────────────────────────────────
   } else if (tool === "update_employee") {
-    const employeeId = params.employeeId as string;
+    const employeeName = params.employeeName as string;  // always present — required by updateEmployeeTool
 
-    // Build the update body — only include fields that were provided in tool params
-    const updateBody: Record<string, unknown> = { schemaName: clientId };
-    if (params.name           !== undefined) updateBody.name           = params.name;
-    if (params.dob            !== undefined) updateBody.dob            = params.dob;
-    if (params.citizenship    !== undefined) updateBody.citizenship    = mapCitizenshipToCpfCode(params.citizenship);  // map human-readable → CPF code (same as add_employee)
-    if (params.monthlySalary  !== undefined) updateBody.monthly_salary = params.monthlySalary;  // camelCase → snake_case
-    if (params.nricFin        !== undefined) updateBody.nric_fin       = params.nricFin;         // camelCase → snake_case
+    // Phase 1: resolve the employee UUID.
+    // Use params.employeeId if the LLM provided it; otherwise query by name.
+    let employeeUUID: string | null = params.employeeId
+      ? (params.employeeId as string)   // LLM knew the UUID — use it directly
+      : null;                            // not provided — look up by name below
 
-    // PUT to the existing payroll employees/[id] route; employeeId goes in the URL
-    const res = await fetch(`${APP_URL}/api/payroll/employees/${employeeId}`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(updateBody),
-    });
+    if (!employeeUUID) {
+      // Case-insensitive ilike so "sarah lee" matches "Sarah Lee" in the DB
+      const { data: empRow, error: empError } = await supabase
+        .schema(clientId)
+        .from("employees")
+        .select("id")
+        .ilike("name", employeeName)
+        .single();
 
-    if (res.ok) {
-      actionResult = { success: true, message: "Employee updated successfully." };
+      if (!empError && empRow) {
+        employeeUUID = (empRow as { id: string }).id;  // found — stash the UUID
+      }
+      // If lookup failed, employeeUUID stays null; outer if/else handles the error below
+    }
+
+    // Phase 2: either report "not found" or execute the PUT.
+    // Single if/else so TypeScript can verify actionResult is always assigned.
+    if (!employeeUUID) {
+      // Could not resolve UUID — LLM omitted it and name lookup returned nothing
+      actionResult = {
+        success: false,
+        error:   `No employee named "${employeeName}" found.`,
+      };
     } else {
-      const err = await res.json() as { error?: string };
-      actionResult = { success: false, error: err.error ?? `HTTP ${res.status}` };
+      // Build the update body — only include fields that were provided in tool params.
+      // Guard against empty strings in addition to undefined: the LLM sometimes passes
+      // optional string fields as "" when the user did not supply a value, which causes
+      // Postgres to reject typed columns (e.g. date "" → "invalid input syntax for type date").
+      const updateBody: Record<string, unknown> = { schemaName: clientId };
+      if (params.name          !== undefined && params.name          !== "") updateBody.name           = params.name;
+      if (params.dob           !== undefined && params.dob           !== "") updateBody.dob            = params.dob;            // empty string → Postgres date error
+      if (params.citizenship   !== undefined && params.citizenship   !== "") updateBody.citizenship    = mapCitizenshipToCpfCode(params.citizenship);  // map human-readable → CPF code
+      if (params.monthlySalary !== undefined)                                updateBody.monthly_salary = params.monthlySalary;  // number — no empty-string risk
+      if (params.nricFin       !== undefined && params.nricFin       !== "") updateBody.nric_fin       = params.nricFin;        // camelCase → snake_case
+
+      // PUT to the existing payroll employees/[id] route; UUID goes in the URL
+      const res = await fetch(`${APP_URL}/api/payroll/employees/${employeeUUID}`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(updateBody),
+      });
+
+      if (res.ok) {
+        actionResult = {
+          success: true,
+          message: `Employee ${employeeName} updated successfully.`,
+        };
+      } else {
+        const errText = await res.text();  // PUT may return plain text on error
+        actionResult = { success: false, error: errText || `HTTP ${res.status}` };
+      }
     }
 
   // ── delete_employee ─────────────────────────────────────────────────────────

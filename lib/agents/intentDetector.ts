@@ -51,12 +51,14 @@ const FS_KEYWORDS = [
   "profit and loss",
 ];
 
-// Phrases that indicate the user wants the payroll pipeline
+// Phrases that indicate the user wants the payroll pipeline.
+// "salary" and "salaries" removed — they appear in employee add/update messages
+// ("add employee ... salary $4000") and falsely set runPayroll=true, causing
+// validationNode to demand payrollMonth and payrollYear. Payroll intent is
+// reliably identified by "payroll", "cpf", "pay slip", or "payslip" alone.
 const PAYROLL_KEYWORDS = [
   "payroll",
   "cpf",
-  "salary",
-  "salaries",
   "pay slip",
   "payslip",
 ];
@@ -101,6 +103,11 @@ const CLIENT_KEYWORDS = [
 // Action verbs that distinguish "do this task" from "explain this concept".
 // "delete", "remove", "dismiss" added to support delete_employee intent.
 // "add" added to support add_client intent ("add new client ...").
+// "edit" added to support "edit employee ..." phrasing.
+// "update" is intentionally EXCLUDED — it doubles as a correction word (e.g.
+// "update financial statements notes") and cannot be safely treated as an action
+// verb for all domain flags. Update + employee is handled separately via
+// hasUpdateEmployee below.
 const ACTION_KEYWORDS = [
   "prepare",
   "generate",
@@ -114,6 +121,7 @@ const ACTION_KEYWORDS = [
   "delete",   // covers "delete employee"
   "remove",   // covers "remove employee"
   "dismiss",  // covers "dismiss employee"
+  "edit",     // covers "edit employee salary to..."
 ];
 
 // Full English month names mapped to their 1-based numeric equivalent
@@ -167,11 +175,26 @@ export function detectAgentIntent(message: string): AgentIntent {
   // ── Action check — must also mention a doing verb ─────────────────────────
   const hasAction = containsAny(lower, ACTION_KEYWORDS);
 
-  // isAgentGoal requires at least one domain match (workflow OR action tool) plus
-  // an action verb — filters out questions like "what is an employee record?"
+  // ── Special case: "update" + employee ───────────────────────────────────────
+  // "update" is excluded from ACTION_KEYWORDS because it also appears in correction
+  // messages (e.g. "update financial statements notes to include..."). Instead, it is
+  // only treated as an action verb when combined specifically with an employee keyword
+  // (e.g. "update employee Sarah Lee salary to $5000").
+  const hasUpdateEmployee = lower.includes("update") && runEmployeeAction;
+
+  // ── isAgentGoal ───────────────────────────────────────────────────────────────
+  // Two independent conditions — either is sufficient:
+  //
+  // Condition A — workflow or client action: a domain flag (FS/payroll/tax/model/client)
+  //   plus a generic action verb (hasAction). "update" is NOT in hasAction, so
+  //   "update financial statements notes" does NOT satisfy this condition.
+  //
+  // Condition B — employee action: runEmployeeAction is true AND (a generic action verb
+  //   OR the specific "update" + employee combination). This catches:
+  //   "update employee X" (hasUpdateEmployee=true) and "edit/delete/add employee X" (hasAction=true).
   const isAgentGoal =
-    (runFS || runPayroll || runTax || runFinancialModel || runEmployeeAction || runClientAction) &&
-    hasAction;
+    ((runFS || runPayroll || runTax || runFinancialModel || runClientAction) && hasAction) ||
+    (runEmployeeAction && (hasAction || hasUpdateEmployee));
 
   // ── Optional field extraction ──────────────────────────────────────────────
 
