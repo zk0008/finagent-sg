@@ -31,10 +31,13 @@ export async function proxy(req: NextRequest) {
     pathname === "/api/financial-statements/generate" ||
     pathname === "/api/financial-model/generate" ||
     pathname === "/api/tax/agent" ||
-    // Employee CRUD — called server-to-server by /api/agent/confirm for add_employee
-    // and update_employee actions. Protected by verifySchemaAccess() in each handler.
+    // Employee CRUD — called server-to-server by /api/agent/confirm for add_employee,
+    // update_employee, and delete_employee actions. Protected by verifySchemaAccess() in each handler.
     pathname === "/api/payroll/employees" ||                   // POST (create) and GET (list)
-    pathname.startsWith("/api/payroll/employees/");            // PUT and DELETE on /employees/[id]
+    pathname.startsWith("/api/payroll/employees/") ||          // PUT and DELETE on /employees/[id]
+    // Client creation — called server-to-server by /api/agent/confirm for add_client.
+    // The route itself checks auth() using the forwarded session cookie from confirm/route.ts.
+    pathname === "/api/clients";
 
   if (isPublic) return NextResponse.next();
 

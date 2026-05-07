@@ -33,6 +33,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@/auth";  // NextAuth v5 session helper — used to guard POST
 import { supabase } from "@/lib/supabaseClient";
 import { generateSchemaName } from "@/lib/schemaUtils";
 import { checkExemption } from "@/lib/exemptionChecker";
@@ -89,6 +90,14 @@ export async function GET(): Promise<NextResponse> {
 // ── POST ──────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Auth guard — only authenticated users may create clients.
+  // For browser requests: session cookie is read directly.
+  // For server-to-server calls from /api/agent/confirm: caller forwards the cookie header.
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  }
+
   let body: z.infer<typeof CreateClientSchema>;
   try {
     const raw = await req.json();

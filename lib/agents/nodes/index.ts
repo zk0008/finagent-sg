@@ -225,14 +225,15 @@ const updateEmployeeTool = tool({
 // Action tool — requires user confirmation; creates a new client record
 const addClientTool = tool({
   description:
-    "Create a new client. Use when the user wants to add, register, or onboard a new company " +
-    "as a client. Requires confirmation before executing.",
+    "Add a new client. Use when the user wants to add, create, register, or onboard a new company. " +
+    "Note: client creation will guide the user to complete the setup manually via the Clients tab.",
   inputSchema: z.object({
-    companyName:  z.string().describe("Full company name"),
-    uen:          z.string().describe("UEN number"),
-    companyType:  z.string().describe("Company type e.g. 'Private Limited'"),
-    fyeDate:      z.string().describe("Financial year end date in YYYY-MM-DD format"),
-    auditExempt:  z.boolean().describe("Whether the company is audit exempt"),
+    // Three fields the user always provides in a chat message — everything else defaults server-side
+    companyName: z.string().describe("Full company legal name e.g. 'TechSoft Pte Ltd'"),
+    uen:         z.string().describe("ACRA UEN e.g. '202500001A'"),
+    fyeDate:     z.string().describe("Financial year end in YYYY-MM-DD format e.g. '2026-12-31'"),
+    // companyType and auditExempt removed — route defaults to private_ltd and calculates
+    // audit exemption from zero financial fields; LLM cannot reliably supply these.
   }),
 });
 
@@ -276,6 +277,24 @@ const submitCorrectionTool = tool({
   }),
 });
 
+// Action tool — requires user confirmation; permanently deletes an employee record
+const deleteEmployeeTool = tool({
+  description:
+    "Delete an existing employee record permanently. Use when the user wants to remove, delete, " +
+    "or dismiss an employee. Requires confirmation before executing.",
+  inputSchema: z.object({
+    employeeId:   z.string().optional().describe(
+      // Optional — LLM usually only knows the employee name, not the DB UUID.
+      // When absent, confirm/route.ts resolves the UUID by querying the employees table.
+      "UUID of the employee — provide if known. If not known, leave empty and the system will look up the employee by name."
+    ),
+    employeeName: z.string().describe(
+      // Always required — used for the confirmation card message and name-based lookup
+      "Name of the employee being deleted — shown to user in the confirmation card for clarity"
+    ),
+  }),
+});
+
 // ─── buildDescription helper ──────────────────────────────────────────────────
 
 /**
@@ -300,8 +319,9 @@ function buildDescription(toolName: string, args: Record<string, unknown>): stri
       return `Update employee ${a.employeeId} with: ${changedFields}`;
     }
     case "add_client": {
-      const a = args as { companyName: string; uen: string; fyeDate: string; auditExempt: boolean };
-      return `Create new client ${a.companyName} (UEN: ${a.uen}), FYE ${a.fyeDate}, audit exempt: ${String(a.auditExempt)}`;
+      // Shows the key fields the user provided; setup reminder directs them to the Clients tab
+      const a = args as { companyName: string; uen: string; fyeDate: string };
+      return `Add new client ${a.companyName} (UEN: ${a.uen}), FYE ${a.fyeDate}. You will be guided to complete setup in the Clients tab.`;
     }
     case "configure_tax": {
       const a = args as { accountingProfitOverride?: number; revenueOverride?: number };
@@ -309,6 +329,13 @@ function buildDescription(toolName: string, args: Record<string, unknown>): stri
       const profit  = a.accountingProfitOverride !== undefined ? `SGD ${a.accountingProfitOverride}` : "unchanged";
       const revenue = a.revenueOverride          !== undefined ? `SGD ${a.revenueOverride}`          : "unchanged";
       return `Set tax override — accounting profit: ${profit}, revenue: ${revenue}`;
+    }
+    case "delete_employee": {
+      const a = args as { employeeId?: string; employeeName: string };
+      // Include the UUID if the LLM provided it; fall back to name-only message when absent
+      return a.employeeId
+        ? `Delete employee ${a.employeeName} (ID: ${a.employeeId}) permanently. This cannot be undone.`
+        : `Delete employee ${a.employeeName} (will be looked up by name). This cannot be undone.`;
     }
     default:
       // Fallback for any future action tool not yet handled here
@@ -366,7 +393,13 @@ TOOL CALLING RULES — follow these strictly:
    - "Prepare financial statement for 2025. The depreciation should use straight-line method." → call run_financial_statement AND submit_correction
    - "Run payroll for May 2026. What is SDL? Update the transport allowance to be non-taxable." → call run_payroll AND query_knowledge_base AND submit_correction
 
-5. ACTION TOOLS — for add_employee, update_employee, delete_employee, add_client, configure_tax: call these when the user explicitly requests creating, updating, or deleting records. These require user confirmation before executing.
+5. ACTION TOOLS — call these tools when the user explicitly requests creating, updating, or deleting records:
+   - add_employee: user wants to add, create, or register a new employee
+   - update_employee: user wants to update, change, or modify an employee's details
+   - delete_employee: user wants to delete, remove, or dismiss an employee — even if only a name is provided, not a UUID
+   - add_client: user wants to add, create, register, or onboard a new company as a client
+   - configure_tax: user wants to set or override accounting profit or revenue for tax purposes
+   These tools require user confirmation before executing. ALWAYS call the tool even if you only have a name and not a UUID — the system will resolve the ID server-side.
 
 6. NEVER return a plain text response without calling any tools. Always call at least one tool. If the message is unclear, call query_knowledge_base with the full message as the query.`;
 
@@ -413,6 +446,7 @@ TOOL CALLING RULES — follow these strictly:
         configure_tax:            configureTaxTool,
         query_knowledge_base:     queryKnowledgeBaseTool,
         submit_correction:        submitCorrectionTool,
+        delete_employee:          deleteEmployeeTool,   // action tool — requires confirmation
       },
     });
 
@@ -473,9 +507,10 @@ TOOL CALLING RULES — follow these strictly:
         managerFetchedContext["submit_correction"] = "Correction submitted: " + correctionInput.correction;
 
       } else if (
-        toolName === "add_employee"   ||
+        toolName === "add_employee"    ||
         toolName === "update_employee" ||
-        toolName === "add_client"     ||
+        toolName === "delete_employee" ||   // permanent delete — requires confirmation
+        toolName === "add_client"      ||
         toolName === "configure_tax"
       ) {
         // Action tool — queue for user confirmation; do NOT execute immediately.

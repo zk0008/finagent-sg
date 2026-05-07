@@ -312,7 +312,7 @@ if null.
 - [x] V3.2-A — Manager Node multi-intent tool calling (query_knowledge_base and submit_correction added to Manager Node; system prompt strengthened for reliable multi-intent dispatch)
 - [x] V3.2-B — RAG Chatbot query_knowledge_base tool
 - V3.2-C — Tax Agent identify_tax_adjustments + check_startup_eligibility
-- V3.2-D — Action tools: add/update employee, add client
+- [x] V3.2-D — Action tools: add/update/delete employee (add_client deferred — graceful redirect to Clients tab)
 - V3.2-E — Tax profit/revenue override (schema change + configure_tax tool)
 - [x] V3.2-F — Confirmation UI component
 - V3.2-G — PHASES_V3.md update
@@ -333,3 +333,4 @@ if null.
   - [x] V3.2-A — Manager Node multi-intent tool calling
   - [x] V3.2-B — RAG Chatbot query_knowledge_base and submit_correction tools
   - [x] V3.2-A system prompt — reliable multi-intent dispatch with query_knowledge_base and submit_correction in Manager Node
+  - [x] V3.2-D — Action tools: add/update/delete employee

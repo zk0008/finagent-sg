@@ -89,6 +89,11 @@ export default function HomePage() {
             schemaName={schemaName}
             clientSelected={clientSelected}
             onAgentComplete={handleAgentComplete}  // called when graph:complete fires with completedRuns
+            onClientCreated={(newSchemaName) => {
+              setSchemaName(newSchemaName);    // switch WorkflowPanel to the newly created client
+              setClientSelected(true);         // mark explicit selection so agent can run immediately
+              setAgentCompletedRuns([]);       // clear any stale run IDs from the previous client
+            }}
           />
         </div>
       </main>

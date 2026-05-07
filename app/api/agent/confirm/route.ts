@@ -135,7 +135,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── Reject unknown tools before executing anything ─────────────────────────
   const { tool, params } = action;
-  const knownTools = ["add_employee", "update_employee", "add_client", "configure_tax"];
+  const knownTools = ["add_employee", "update_employee", "delete_employee", "add_client", "configure_tax"];
   if (!knownTools.includes(tool)) {
     return new Response(
       JSON.stringify({ error: `Unknown action tool: ${tool}` }),
@@ -146,7 +146,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   // ── Execute the confirmed action synchronously before starting SSE ─────────
   // Done here (not inside the stream) so that a failure can return a plain JSON
   // error response — once the SSE ReadableStream starts we cannot return non-2xx.
-  let actionResult: { success: boolean; message?: string; error?: string };
+  // newClientSchemaName is only populated by the add_client handler — carried through
+  // to the graph:complete SSE event so ChatbotPanel can auto-switch the active client.
+  let actionResult: { success: boolean; message?: string; error?: string; newClientSchemaName?: string };
 
   // ── add_employee ────────────────────────────────────────────────────────────
   if (tool === "add_employee") {
@@ -198,7 +200,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     const updateBody: Record<string, unknown> = { schemaName: clientId };
     if (params.name           !== undefined) updateBody.name           = params.name;
     if (params.dob            !== undefined) updateBody.dob            = params.dob;
-    if (params.citizenship    !== undefined) updateBody.citizenship    = params.citizenship;
+    if (params.citizenship    !== undefined) updateBody.citizenship    = mapCitizenshipToCpfCode(params.citizenship);  // map human-readable → CPF code (same as add_employee)
     if (params.monthlySalary  !== undefined) updateBody.monthly_salary = params.monthlySalary;  // camelCase → snake_case
     if (params.nricFin        !== undefined) updateBody.nric_fin       = params.nricFin;         // camelCase → snake_case
 
@@ -216,37 +218,72 @@ export async function POST(req: NextRequest): Promise<Response> {
       actionResult = { success: false, error: err.error ?? `HTTP ${res.status}` };
     }
 
-  // ── add_client ──────────────────────────────────────────────────────────────
-  } else if (tool === "add_client") {
-    // POST to the existing clients route; map tool camelCase params to snake_case route fields.
-    // auditExempt is not passed directly — the route calculates it from financial fields
-    // (which default to "0"/0/false since the LLM doesn't collect them for add_client).
-    const res = await fetch(`${APP_URL}/api/clients`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        name:                       params.companyName,  // companyName → name
-        uen:                        params.uen,
-        company_type:               params.companyType,  // companyType → company_type
-        fye_date:                   params.fyeDate,      // fyeDate → fye_date
-        // Financial fields default to zero — route calculates audit_exempt from these
-        revenue:                    "0",
-        total_assets:               "0",
-        employee_count:             0,
-        shareholder_count:          1,
-        has_corporate_shareholders: false,
-      }),
-    });
+  // ── delete_employee ─────────────────────────────────────────────────────────
+  } else if (tool === "delete_employee") {
+    const employeeName = params.employeeName as string;  // always present — used in messages and lookup
 
-    if (res.ok) {
+    // Phase 1: resolve the employee UUID.
+    // Use params.employeeId if the LLM provided it; otherwise query by name.
+    let employeeUUID: string | null = params.employeeId
+      ? (params.employeeId as string)   // LLM already knew the UUID — use it directly
+      : null;                            // not provided — look up by name below
+
+    if (!employeeUUID) {
+      // Case-insensitive ilike so "sarah tan" matches "Sarah Tan" in the DB
+      const { data: empRow, error: empError } = await supabase
+        .schema(clientId)
+        .from("employees")
+        .select("id")
+        .ilike("name", employeeName)
+        .single();
+
+      if (!empError && empRow) {
+        employeeUUID = (empRow as { id: string }).id;  // found — stash the UUID
+      }
+      // If lookup failed, employeeUUID stays null; outer if/else handles the error below
+    }
+
+    // Phase 2: either report "not found" or execute the DELETE.
+    // Single if/else here so TypeScript can verify actionResult is always assigned.
+    if (!employeeUUID) {
+      // Could not resolve UUID — either LLM omitted it and name lookup returned nothing
       actionResult = {
-        success: true,
-        message: `Client ${String(params.companyName)} created successfully.`,
+        success: false,
+        error:   `No employee named "${employeeName}" found.`,
       };
     } else {
-      const err = await res.json() as { error?: string };
-      actionResult = { success: false, error: err.error ?? `HTTP ${res.status}` };
+      // Valid UUID in hand — DELETE to the existing payroll employees/[id] route;
+      // schemaName is passed as a query param per the DELETE handler's signature
+      const res = await fetch(
+        `${APP_URL}/api/payroll/employees/${employeeUUID}?schemaName=${encodeURIComponent(clientId)}`,
+        {
+          method:  "DELETE",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (res.ok) {
+        actionResult = {
+          success: true,
+          message: `Employee ${employeeName} deleted successfully.`,
+        };
+      } else {
+        const errText = await res.text();  // DELETE may return plain text on error
+        actionResult = { success: false, error: errText || `HTTP ${res.status}` };
+      }
     }
+
+  // ── add_client ──────────────────────────────────────────────────────────────
+  } else if (tool === "add_client") {
+    // Graceful redirect — do NOT call /api/clients or write any data here.
+    // Client creation requires manual steps (schema provisioning, financial setup)
+    // that are best done through the Clients tab in the left panel.
+    // The ConfirmationCard still shows the proposed action; clicking Confirm
+    // delivers this redirect message to the user instead of an HTTP call or error.
+    actionResult = {
+      success: true,
+      message: `Adding a new client requires a few steps that are best done through the Clients tab. Please go to the Clients tab in the left panel to add ${String(params.companyName)} manually. Once added, select the client and you can use the agent to run workflows for them.`,
+    };
 
   // ── configure_tax ───────────────────────────────────────────────────────────
   } else {
@@ -350,9 +387,10 @@ export async function POST(req: NextRequest): Promise<Response> {
         send({
           event: "graph:complete",
           data:  {
-            summary:        actionResult.message ?? "",
-            completedRuns:  [],
-            executedAction: action.tool,  // signals action-only completion; UI uses this to trigger re-fetches
+            summary:             actionResult.message ?? "",
+            completedRuns:       [],
+            executedAction:      action.tool,           // signals action-only completion; UI uses this to trigger re-fetches
+            newClientSchemaName: actionResult.newClientSchemaName ?? null,  // non-null only for add_client; UI uses this to auto-switch active client
           },
         });
         controller.close();

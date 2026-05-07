@@ -29,6 +29,10 @@ export interface AgentIntent {
   runPayroll:           boolean;
   runTax:               boolean;
   runFinancialModel:    boolean;
+  // Employee management intent — true when the message targets an employee record
+  runEmployeeAction:    boolean;
+  // Client management intent — true when the message targets a client record
+  runClientAction:      boolean;
   financialYear?:       string;
   payrollMonth?:        number;
   payrollYear?:         number;
@@ -76,7 +80,27 @@ const MODEL_KEYWORDS = [
   "budget",
 ];
 
-// Action verbs that distinguish "do this task" from "explain this concept"
+// Phrases that indicate the user wants to manage an employee record
+// (add, update, or delete an employee via action tools in managerNode)
+const EMPLOYEE_KEYWORDS = [
+  "employee",
+  "staff",
+  "worker",
+  "payroll employee",
+];
+
+// Phrases that indicate the user wants to create or onboard a new client
+const CLIENT_KEYWORDS = [
+  "new client",
+  "add client",
+  "create client",
+  "onboard client",
+  "register client",
+];
+
+// Action verbs that distinguish "do this task" from "explain this concept".
+// "delete", "remove", "dismiss" added to support delete_employee intent.
+// "add" added to support add_client intent ("add new client ...").
 const ACTION_KEYWORDS = [
   "prepare",
   "generate",
@@ -86,6 +110,10 @@ const ACTION_KEYWORDS = [
   "create",
   "produce",
   "calculate",
+  "add",      // covers "add new client", "add employee"
+  "delete",   // covers "delete employee"
+  "remove",   // covers "remove employee"
+  "dismiss",  // covers "dismiss employee"
 ];
 
 // Full English month names mapped to their 1-based numeric equivalent
@@ -130,12 +158,20 @@ export function detectAgentIntent(message: string): AgentIntent {
   const runTax            = containsAny(lower, TAX_KEYWORDS);
   const runFinancialModel = containsAny(lower, MODEL_KEYWORDS);
 
+  // ── Action tool flags — employee and client management ────────────────────
+  // True when the message references an employee or client record by domain word.
+  // Combined with hasAction below to confirm an imperative intent (not a question).
+  const runEmployeeAction = containsAny(lower, EMPLOYEE_KEYWORDS);
+  const runClientAction   = containsAny(lower, CLIENT_KEYWORDS);
+
   // ── Action check — must also mention a doing verb ─────────────────────────
   const hasAction = containsAny(lower, ACTION_KEYWORDS);
 
-  // isAgentGoal requires at least one domain match plus an action verb
+  // isAgentGoal requires at least one domain match (workflow OR action tool) plus
+  // an action verb — filters out questions like "what is an employee record?"
   const isAgentGoal =
-    (runFS || runPayroll || runTax || runFinancialModel) && hasAction;
+    (runFS || runPayroll || runTax || runFinancialModel || runEmployeeAction || runClientAction) &&
+    hasAction;
 
   // ── Optional field extraction ──────────────────────────────────────────────
 
@@ -180,6 +216,8 @@ export function detectAgentIntent(message: string): AgentIntent {
     runPayroll,
     runTax,
     runFinancialModel,
+    runEmployeeAction,                          // true when message targets an employee record
+    runClientAction,                            // true when message targets a client record
     financialYear:         extractedYear,       // string e.g. "2025", or undefined
     payrollMonth,                               // number 1–12, or undefined
     payrollYear:           extractedYear        // same year token doubles as payroll year

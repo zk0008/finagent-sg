@@ -69,6 +69,9 @@ interface ChatbotPanelProps {
   // Passed up to page.tsx, which stores the runs and passes them to WorkflowPanel
   // so each workflow component can auto-load its agent-generated result.
   onAgentComplete?: (runs: Array<{ workflow: string; runId: string }>) => void;
+  // Called after add_client confirmation succeeds — page.tsx uses this to switch the
+  // active client in WorkflowPanel so the user can immediately run workflows.
+  onClientCreated?: (schemaName: string) => void;
 }
 
 // ── Agent SSE helper ──────────────────────────────────────────────────────────
@@ -81,7 +84,7 @@ interface AgentSSEHandlers {
   onValidationMissing:          (fields: string[]) => void;
   onActionConfirmationRequired: (action: { tool: string; params: Record<string, unknown>; description: string }) => void;
   onActionExecuted:             (message: string) => void;
-  onGraphComplete:              (summary: string, completedRuns: Array<{ workflow: string; runId: string; projectionPeriodYears?: number }>, executedAction?: string) => void;
+  onGraphComplete:              (summary: string, completedRuns: Array<{ workflow: string; runId: string; projectionPeriodYears?: number }>, executedAction?: string, newClientSchemaName?: string) => void;
   onGraphError:                 (error: string) => void;
 }
 
@@ -120,6 +123,8 @@ async function consumeAgentSSE(
           (data.summary as string) || "",
           (data.completedRuns as Array<{ workflow: string; runId: string; projectionPeriodYears?: number }>) || [],
           data.executedAction as string | undefined,
+          // newClientSchemaName is only present on add_client action-only completions
+          data.newClientSchemaName as string | undefined,
         );
       } else if (event === "graph:error") {
         handlers.onGraphError(data.error as string);
@@ -137,7 +142,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-export function ChatbotPanel({ schemaName = "default", clientSelected = false, onAgentComplete }: ChatbotPanelProps) {
+export function ChatbotPanel({ schemaName = "default", clientSelected = false, onAgentComplete, onClientCreated }: ChatbotPanelProps) {
   const { data: session } = useSession();
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
@@ -536,7 +541,7 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
         onActionExecuted: (msg) => {
           appendMessage("system", `✅ ${msg}`);
         },
-        onGraphComplete: (summary, completedRuns, executedAction) => {
+        onGraphComplete: (summary, completedRuns, executedAction, newClientSchemaName) => {
           setAgentSummary(summary || null);
           setIsAgentRunning(false);
           if (completedRuns.length > 0) {
@@ -550,6 +555,15 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
             completedRuns.length === 0
           ) {
             onAgentComplete?.([{ workflow: "payroll", runId: "refresh" }]);
+          }
+          // add_client: auto-switch the active client in the UI so the user can
+          // immediately run workflows for the newly created client.
+          if (executedAction === "add_client" && newClientSchemaName && completedRuns.length === 0) {
+            onClientCreated?.(newClientSchemaName);  // propagates to page.tsx setSchemaName + setClientSelected
+            appendMessage(
+              "system",
+              `✅ Client created. Switched to ${newClientSchemaName}. You can now run workflows for this client.`,
+            );
           }
         },
         onGraphError: (error) => {
@@ -719,18 +733,27 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
                             rounded-md border bg-popover px-3 py-2 shadow-md
                             text-xs text-muted-foreground space-y-0.5 select-text"
               >
-                {/* Header label */}
-                <p className="font-medium text-foreground mb-1">Try:</p>
-                {/* Agent workflow examples */}
-                <p>Agent — "Prepare financial statement for 2025"</p>
-                <p>Agent — "Run payroll for April 2026"</p>
-                <p>Agent — "Compute corporate tax for YA2026"</p>
-                <p>Agent — "Generate a 3 year financial projection"</p>
-                {/* RAG question example */}
-                <p>Question — "What is the CPF contribution rate for a PR in year 2?"</p>
-                {/* Correction examples */}
-                <p>Correction — "The depreciation for this client should use straight-line method"</p>
-                <p>Correction — "Update financial statements notes to include the going concern note"</p>
+                {/* Section 1: agent workflow and action tool examples */}
+                <p className="font-medium text-foreground mb-0.5">🤖 Agent — workflows and actions</p>
+                <p>Prepare financial statement for 2025</p>
+                <p>Run payroll for April 2026</p>
+                <p>Compute corporate tax for YA2026</p>
+                <p>Generate a 3 year financial projection</p>
+                <p>Run payroll for May 2026 and what is the SDL rate?</p>
+                <p>Prepare financial statement for 2025. The depreciation should use straight-line method.</p>
+                <p>Add employee John Tan, Singapore citizen, DOB 1990-01-15, salary $4000</p>
+                <p>Delete employee John Tan</p>
+                <p>Update employee John Tan salary to $4500</p>
+                <p>Add new client TechSoft Pte Ltd, UEN 202500001A, FYE 31 December 2026</p>
+                {/* Section 2: RAG knowledge base questions */}
+                <p className="font-medium text-foreground mt-1.5 mb-0.5">💬 Question — Singapore accounting and tax</p>
+                <p>What is the CPF contribution rate for a PR in year 2?</p>
+                <p>What are the SFRS going concern disclosure requirements?</p>
+                <p>What is the SDL rate for 2026?</p>
+                {/* Section 3: correction / knowledge base update examples */}
+                <p className="font-medium text-foreground mt-1.5 mb-0.5">✏️ Correction — update the knowledge base</p>
+                <p>The depreciation for this client should use straight-line method</p>
+                <p>Update financial statements notes to include the going concern note</p>
               </div>
             )}
 
