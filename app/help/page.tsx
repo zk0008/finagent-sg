@@ -14,7 +14,7 @@
  * - Fine-tuning
  */
 
-import { BottomNav } from "@/components/BottomNav";
+import { AppLayout } from "@/components/AppLayout";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -30,7 +30,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Step({ n, text }: { n: number; text: string }) {
   return (
     <div className="flex gap-3">
-      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+      <span className="flex-shrink-0 w-5 h-5 rounded-md bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
         {n}
       </span>
       <p>{text}</p>
@@ -40,11 +40,7 @@ function Step({ n, text }: { n: number; text: string }) {
 
 export default function HelpPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-white">
-        <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
-      </header>
-
+    <AppLayout pageTitle="Help">
       <main className="flex-1 p-8 max-w-3xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="text-xl font-semibold">Help &amp; Documentation</h1>
@@ -121,7 +117,6 @@ export default function HelpPage() {
         </Section>
       </main>
 
-      <BottomNav />
-    </div>
+    </AppLayout>
   );
 }

@@ -76,14 +76,14 @@ export function ConfirmationCard({
 }: ConfirmationCardProps) {
   return (
     // Amber border distinguishes this card from AgentProgressPanel's neutral border
-    <Card className="w-full border-amber-300 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-700">
+    <Card className="w-full border-[#E8D9A8] bg-[#FBF3DE]/40">
 
       {/* ── Header: warning icon + title ── */}
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           {/* Amber warning icon — visually reinforces "action required" */}
-          <TriangleAlert className="h-4 w-4 text-amber-500 shrink-0" />
-          <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="h-4 w-4 text-[#B5841A] shrink-0" />
+          <CardTitle className="text-sm font-medium text-[#B5841A]">
             Action Required
           </CardTitle>
         </div>

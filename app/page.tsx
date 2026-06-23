@@ -19,7 +19,7 @@ import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { ChatbotPanel } from "@/components/ChatbotPanel";
-import { BottomNav } from "@/components/BottomNav";
+import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
@@ -49,10 +49,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Top header bar */}
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-white">
-        <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
+    <AppLayout
+      pageTitle="Dashboard"
+      headerRight={
         <div className="flex items-center gap-3">
           {session?.user?.name && (
             <span className="text-sm text-muted-foreground">
@@ -67,8 +66,8 @@ export default function HomePage() {
             Sign out
           </Button>
         </div>
-      </header>
-
+      }
+    >
       {/* Main two-panel area */}
       <main className="flex flex-1 overflow-hidden flex-col md:flex-row">
         {/* Left: Workflow panel */}
@@ -97,9 +96,6 @@ export default function HomePage() {
           />
         </div>
       </main>
-
-      {/* Bottom navigation */}
-      <BottomNav />
-    </div>
+    </AppLayout>
   );
 }

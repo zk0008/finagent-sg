@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -49,30 +49,30 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --background: oklch(0.982 0.004 90);       /* #FAF9F6 warm cream canvas */
+  --foreground: oklch(0.216 0.006 60);       /* #1C1917 warm charcoal */
+  --card: oklch(0.964 0.007 90);             /* #F5F3EE warm surface */
+  --card-foreground: oklch(0.216 0.006 60);  /* #1C1917 */
+  --popover: oklch(1 0 0);                   /* #FFFFFF — modals/dialogs use pure white */
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --primary: oklch(0.487 0.064 159);         /* #3D6B52 muted sage green */
+  --primary-foreground: oklch(1 0 0);        /* #FFFFFF white text on sage */
+  --secondary: oklch(0.944 0.009 76);        /* #EFECE6 surface raised */
+  --secondary-foreground: oklch(0.216 0.006 60);
+  --muted: oklch(0.944 0.009 76);            /* #EFECE6 */
+  --muted-foreground: oklch(0.511 0.011 68); /* #6B6560 warm mid-grey */
+  --accent: oklch(0.944 0.009 76);           /* #EFECE6 */
+  --accent-foreground: oklch(0.216 0.006 60);
+  --destructive: oklch(0.484 0.131 23);      /* #9B3A3A muted warm red */
+  --border: oklch(0.910 0.011 93);           /* #E5E1DA warm border */
+  --input: oklch(0.910 0.011 93);            /* #E5E1DA */
+  --ring: oklch(0.487 0.064 159);            /* #3D6B52 sage green focus ring */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.375rem;                        /* 6px — rounded-md */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -83,39 +83,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* .dark block removed — dark mode is deferred per design system */
 
 @layer base {
   * {
@@ -127,4 +95,7 @@
   html {
     @apply font-sans;
   }
+  .status-success { color: #3D6B52; background: #EAF1EC; }
+  .status-error   { color: #9B3A3A; background: #F8EDEC; }
+  .status-warning { color: #B5841A; background: #FBF3DE; }
 }

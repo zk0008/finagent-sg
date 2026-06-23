@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AddClientForm } from "@/components/AddClientForm";
-import { BottomNav } from "@/components/BottomNav";
+import { AppLayout } from "@/components/AppLayout";
 import type { ClientSummary } from "@/app/api/clients/route";
 
 export default function ClientsPage() {
@@ -77,12 +77,7 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-white">
-        <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
-      </header>
-
+    <AppLayout pageTitle="Clients">
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -165,7 +160,6 @@ export default function ClientsPage() {
         )}
       </main>
 
-      <BottomNav />
-    </div>
+    </AppLayout>
   );
 }

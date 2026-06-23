@@ -28,7 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { BottomNav } from "@/components/BottomNav";
+import { AppLayout } from "@/components/AppLayout";
 import type { ClientSummary } from "@/app/api/clients/route";
 import type {
   FSHistoryItem,
@@ -136,11 +136,7 @@ export default function HistoryPage() {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-white">
-        <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
-      </header>
-
+    <AppLayout pageTitle="History">
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full">
         <div className="mb-6">
           <h2 className="text-xl font-semibold">History</h2>
@@ -342,7 +338,6 @@ export default function HistoryPage() {
         </Tabs>
       </main>
 
-      <BottomNav />
-    </div>
+    </AppLayout>
   );
 }

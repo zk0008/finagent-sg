@@ -629,11 +629,11 @@ export function ModelWorkflow({
 
       {/* ── "No FS" warning ── */}
       {noFS && !isFetchingFS && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-sm text-amber-800 font-medium">
+        <div className="rounded-md border border-[#E8D9A8] bg-[#FBF3DE] px-4 py-3">
+          <p className="text-sm text-[#B5841A] font-medium">
             No financial statements found.
           </p>
-          <p className="text-xs text-amber-700 mt-0.5">
+          <p className="text-xs text-[#B5841A] mt-0.5">
             Generate Financial Statements first before building a model.
           </p>
         </div>
@@ -644,7 +644,7 @@ export function ModelWorkflow({
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             Step 1 — Projection Setup
-            {latestFS && <Badge variant="outline" className="text-xs text-green-600 border-green-200">Base data loaded</Badge>}
+            {latestFS && <Badge variant="outline" className="text-xs text-primary border-[#C8D9CE]">Base data loaded</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -787,8 +787,8 @@ export function ModelWorkflow({
                 {runSteps.map((s) => (
                   <div key={s.key} className="flex items-center gap-1.5 text-xs">
                     <span className={
-                      s.status === "complete"   ? "text-green-500" :
-                      s.status === "in_progress" ? "text-blue-500 animate-pulse" :
+                      s.status === "complete"   ? "text-primary" :
+                      s.status === "in_progress" ? "text-primary animate-pulse" :
                       s.status === "error"       ? "text-destructive" :
                       "text-muted-foreground/40"
                     }>
@@ -861,8 +861,8 @@ export function ModelWorkflow({
                   {isSaving ? "Saving…" : "Save Model"}
                 </Button>
               ) : (
-                <div className="flex-1 rounded-md border border-green-200 bg-green-50 px-3 py-2">
-                  <p className="text-xs text-green-700 font-medium">
+                <div className="flex-1 rounded-md border border-[#C8D9CE] bg-[#EAF1EC] px-3 py-2">
+                  <p className="text-xs text-primary font-medium">
                     ✓ Model saved — ID: {savedModelId.slice(0, 8)}…
                   </p>
                 </div>

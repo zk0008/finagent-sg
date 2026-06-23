@@ -325,11 +325,11 @@ export function TaxWorkflow({
         {([1, 2, 3] as const).map((s) => (
           <div key={s} className="flex items-center gap-1">
             <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+              className={`flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium ${
                 step === s
                   ? "bg-primary text-primary-foreground"
                   : step > s
-                  ? "bg-green-500 text-white"
+                  ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
               }`}
             >
@@ -374,7 +374,7 @@ export function TaxWorkflow({
               {fsMeta?.found && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground">Latest FS</span>
-                  <span className="text-xs text-green-600">
+                  <span className="text-xs text-primary">
                     Found (FYE {fsMeta.as_at_date}) — enter profit &amp; revenue below
                   </span>
                 </div>
@@ -638,7 +638,7 @@ export function TaxWorkflow({
                 {companyName} — Basis period: {fiscalYearStart} to {fyeDate}
               </p>
               {computationId && (
-                <p className="text-xs text-green-600 mt-1">
+                <p className="text-xs text-primary mt-1">
                   Saved to database (ID: {computationId.slice(0, 8)}...)
                 </p>
               )}
@@ -724,7 +724,7 @@ export function TaxWorkflow({
                     <td className="py-1 text-muted-foreground">
                       Less: CIT Rebate YA {taxResult.year_of_assessment} (40%, max $30,000)
                     </td>
-                    <td className="py-1 text-right font-mono text-green-700">
+                    <td className="py-1 text-right font-mono text-primary">
                       ({fmtSGD(taxResult.cit_rebate)})
                     </td>
                   </tr>
@@ -733,7 +733,7 @@ export function TaxWorkflow({
                       <td className="py-1 text-muted-foreground">
                         Less: CIT Rebate Cash Grant ($1,500)
                       </td>
-                      <td className="py-1 text-right font-mono text-green-700">
+                      <td className="py-1 text-right font-mono text-primary">
                         ({fmtSGD(taxResult.cit_rebate_cash_grant)})
                       </td>
                     </tr>

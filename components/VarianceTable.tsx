@@ -137,8 +137,8 @@ export function VarianceTable({ items, summary }: VarianceTableProps) {
                     key={`${category}-${i}`}
                     className={
                       item.favorable
-                        ? "bg-green-50/40 hover:bg-green-50/60"
-                        : "bg-red-50/40 hover:bg-red-50/60"
+                        ? "bg-[#EAF1EC]/40 hover:bg-[#EAF1EC]/60"
+                        : "bg-[#F8EDEC]/40 hover:bg-[#F8EDEC]/60"
                     }
                   >
                     <TableCell className="py-1.5 text-xs pl-5">
@@ -160,14 +160,14 @@ export function VarianceTable({ items, summary }: VarianceTableProps) {
                     </TableCell>
                     <TableCell
                       className={`py-1.5 text-right text-xs font-mono tabular-nums font-medium ${
-                        item.favorable ? "text-green-700" : "text-red-700"
+                        item.favorable ? "text-primary" : "text-destructive"
                       }`}
                     >
                       {fmtVariance(item.variance_amount)}
                     </TableCell>
                     <TableCell
                       className={`py-1.5 text-right text-xs font-mono ${
-                        item.favorable ? "text-green-600" : "text-red-600"
+                        item.favorable ? "text-primary" : "text-destructive"
                       }`}
                     >
                       {item.variance_pct}
@@ -217,13 +217,13 @@ function SummaryCard({
   return (
     <div
       className={`rounded-md border p-3 ${
-        favorable ? "border-green-200 bg-green-50/50" : "border-red-200 bg-red-50/50"
+        favorable ? "border-[#C8D9CE] bg-[#EAF1EC]/50" : "border-[#E5CBCA] bg-[#F8EDEC]/50"
       }`}
     >
       <p className="text-xs text-muted-foreground">{label}</p>
       <p
         className={`text-sm font-semibold font-mono mt-0.5 ${
-          favorable ? "text-green-700" : "text-red-700"
+          favorable ? "text-primary" : "text-destructive"
         }`}
       >
         {fmtVariance(value)}
@@ -246,7 +246,7 @@ function TopVarianceList({
     <div>
       <p
         className={`text-xs font-semibold mb-1 ${
-          favorable ? "text-green-700" : "text-red-700"
+          favorable ? "text-primary" : "text-destructive"
         }`}
       >
         {title}
@@ -257,7 +257,7 @@ function TopVarianceList({
             <span className="truncate mr-2">{item.account_name}</span>
             <span
               className={`font-mono font-medium shrink-0 ${
-                favorable ? "text-green-700" : "text-red-700"
+                favorable ? "text-primary" : "text-destructive"
               }`}
             >
               {fmtVariance(item.variance_amount)}

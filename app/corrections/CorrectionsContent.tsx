@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BottomNav } from "@/components/BottomNav";
+import { AppLayout } from "@/components/AppLayout";
 import type { Correction } from "@/app/api/corrections/route";
 import type { ClientSummary } from "@/app/api/clients/route";
 
@@ -110,11 +110,7 @@ export default function CorrectionsContent() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="flex items-center justify-between px-6 py-3 border-b bg-white">
-        <h1 className="text-lg font-semibold tracking-tight">FinAgent-SG</h1>
-      </header>
-
+    <AppLayout pageTitle="Corrections">
       <main className="flex-1 p-8 max-w-5xl mx-auto w-full">
       <div className="mb-6">
         <h1 className="text-xl font-semibold">Corrections</h1>
@@ -214,7 +210,6 @@ export default function CorrectionsContent() {
       )}
       </main>
 
-      <BottomNav />
-    </div>
+    </AppLayout>
   );
 }

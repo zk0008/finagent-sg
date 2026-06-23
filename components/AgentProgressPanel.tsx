@@ -82,12 +82,12 @@ export function AgentProgressPanel({
           <CardTitle className="text-sm font-medium">Agent</CardTitle>
           {isRunning ? (
             // Stream still open — pulse to indicate activity
-            <Badge variant="outline" className="text-xs text-blue-600 border-blue-200 animate-pulse">
+            <Badge variant="outline" className="text-xs text-primary border-primary/30 animate-pulse">
               Running…
             </Badge>
           ) : (
             // Stream closed — show outcome
-            <Badge variant="outline" className="text-xs text-green-600 border-green-200">
+            <Badge variant="outline" className="text-xs text-primary border-[#C8D9CE]">
               Finished
             </Badge>
           )}
@@ -112,8 +112,8 @@ export function AgentProgressPanel({
               <div key={`${node.name}-${i}`} className="flex items-start gap-2">
                 {/* Status icon — matches WorkflowPanel exactly */}
                 <span className={
-                  node.status === "complete" ? "text-green-500 mt-0.5" :
-                  node.status === "running"  ? "text-blue-500 mt-0.5 animate-pulse" :
+                  node.status === "complete" ? "text-primary mt-0.5" :
+                  node.status === "running"  ? "text-primary mt-0.5 animate-pulse" :
                   node.status === "error"    ? "text-destructive mt-0.5" :
                   "text-muted-foreground/40 mt-0.5"
                 }>
@@ -140,7 +140,7 @@ export function AgentProgressPanel({
                   <Badge variant="outline" className="text-xs shrink-0">Running</Badge>
                 )}
                 {node.status === "complete" && (
-                  <Badge variant="outline" className="text-xs shrink-0 text-green-600 border-green-200">Done</Badge>
+                  <Badge variant="outline" className="text-xs shrink-0 text-primary border-[#C8D9CE]">Done</Badge>
                 )}
                 {node.status === "error" && (
                   <Badge variant="destructive" className="text-xs shrink-0">Error</Badge>

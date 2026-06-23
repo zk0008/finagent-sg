@@ -651,8 +651,8 @@ export function WorkflowPanel({ onSchemaNameChange, agentCompletedRuns = [] }: W
                 {steps.map((step) => (
                   <div key={step.key} className="flex items-start gap-2">
                     <span className={
-                      step.status === "complete"    ? "text-green-500 mt-0.5" :
-                      step.status === "in_progress" ? "text-blue-500 mt-0.5 animate-pulse" :
+                      step.status === "complete"    ? "text-primary mt-0.5" :
+                      step.status === "in_progress" ? "text-primary mt-0.5 animate-pulse" :
                       step.status === "error"       ? "text-destructive mt-0.5" :
                       "text-muted-foreground/40 mt-0.5"
                     }>
@@ -674,7 +674,7 @@ export function WorkflowPanel({ onSchemaNameChange, agentCompletedRuns = [] }: W
                       <Badge variant="outline" className="text-xs shrink-0">Running</Badge>
                     )}
                     {step.status === "complete" && (
-                      <Badge variant="outline" className="text-xs shrink-0 text-green-600 border-green-200">Done</Badge>
+                      <Badge variant="outline" className="text-xs shrink-0 text-primary border-[#C8D9CE]">Done</Badge>
                     )}
                     {step.status === "error" && (
                       <Badge variant="destructive" className="text-xs shrink-0">Error</Badge>

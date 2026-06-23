@@ -730,7 +730,7 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
               <div
                 onMouseDown={(e) => e.preventDefault()} // prevent outside-click handler from firing on panel clicks
                 className="absolute bottom-full mb-1 left-0 right-0 z-10
-                            rounded-md border bg-popover px-3 py-2 shadow-md
+                            rounded-md border bg-popover px-3 py-2 shadow-sm
                             text-xs text-muted-foreground space-y-0.5 select-text"
               >
                 {/* Section 1: agent workflow and action tool examples */}

@@ -70,7 +70,7 @@ function fmtDate(iso: string): string {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xs font-bold text-gray-900 uppercase tracking-wide mt-4 mb-1 border-b border-gray-300 pb-0.5">
+    <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mt-4 mb-1 border-b pb-0.5">
       {children}
     </h2>
   );
@@ -78,7 +78,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 function SubHeader({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold text-gray-700 mt-2 mb-0.5">{children}</p>
+    <p className="text-[11px] font-semibold text-muted-foreground mt-2 mb-0.5">{children}</p>
   );
 }
 
@@ -90,8 +90,8 @@ function LineItems({ items }: { items: LineItem[] }) {
     <>
       {safe.map((item, i) => (
         <div key={i} className="flex justify-between text-[11px] py-px pl-3">
-          <span className="text-gray-700">{item.label}</span>
-          <span className="font-mono text-gray-900 tabular-nums">{fmt(item.amount)}</span>
+          <span className="text-muted-foreground">{item.label}</span>
+          <span className="font-mono text-foreground tabular-nums">{fmt(item.amount)}</span>
         </div>
       ))}
     </>
@@ -101,9 +101,9 @@ function LineItems({ items }: { items: LineItem[] }) {
 /** Renders a subtotal/total row with a top border and bold text. */
 function TotalRow({ label, amount, double = false }: { label: string; amount: unknown; double?: boolean }) {
   return (
-    <div className={`flex justify-between text-[11px] py-px mt-0.5 pt-0.5 border-t ${double ? "border-double border-t-4 border-gray-400" : "border-gray-300"}`}>
-      <span className="font-semibold text-gray-900">{label}</span>
-      <span className="font-mono font-semibold text-gray-900 tabular-nums">{fmt(amount)}</span>
+    <div className={`flex justify-between text-[11px] py-px mt-0.5 pt-0.5 border-t ${double ? "border-double border-t-4" : ""}`}>
+      <span className="font-semibold text-foreground">{label}</span>
+      <span className="font-mono font-semibold text-foreground tabular-nums">{fmt(amount)}</span>
     </div>
   );
 }
@@ -112,8 +112,8 @@ function TotalRow({ label, amount, double = false }: { label: string; amount: un
 function DataRow({ label, amount }: { label: string; amount: unknown }) {
   return (
     <div className="flex justify-between text-[11px] py-px pl-3">
-      <span className="text-gray-700">{label}</span>
-      <span className="font-mono text-gray-900 tabular-nums">{fmt(amount)}</span>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono text-foreground tabular-nums">{fmt(amount)}</span>
     </div>
   );
 }
@@ -136,24 +136,24 @@ export function FSPreview({ open, onClose, fsOutput, companyName, fyeDate }: Pro
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="w-auto max-w-4xl max-h-[95vh] overflow-y-auto bg-white text-gray-900">
+      <DialogContent className="w-auto max-w-4xl max-h-[95vh] overflow-y-auto bg-card text-foreground">
         <DialogHeader>
-          <DialogTitle className="text-base font-bold text-gray-900">
+          <DialogTitle className="text-base font-semibold text-foreground">
             Financial Statements Preview
           </DialogTitle>
         </DialogHeader>
 
         {/* ── Cover ── */}
-        <div className="text-center py-3 border-b border-gray-200">
-          <p className="text-base font-bold text-gray-900">{companyName}</p>
-          <p className="text-xs text-gray-500 mt-1">Financial Statements</p>
-          <p className="text-xs text-gray-500">For the Financial Year Ended {fmtDate(fyeDate)}</p>
-          <p className="text-xs text-gray-500">Currency: SGD</p>
+        <div className="text-center py-3 border-b">
+          <p className="text-base font-semibold text-foreground">{companyName}</p>
+          <p className="text-xs text-muted-foreground mt-1">Financial Statements</p>
+          <p className="text-xs text-muted-foreground">For the Financial Year Ended {fmtDate(fyeDate)}</p>
+          <p className="text-xs text-muted-foreground">Currency: SGD</p>
         </div>
 
         {/* ── 1. Balance Sheet ── */}
         <SectionHeader>1. Balance Sheet (Statement of Financial Position)</SectionHeader>
-        <p className="text-[10px] text-gray-500 mb-1">As at {fmtDate(fyeDate)}</p>
+        <p className="text-[10px] text-muted-foreground mb-1">As at {fmtDate(fyeDate)}</p>
 
         <SubHeader>ASSETS</SubHeader>
         <SubHeader>Current Assets</SubHeader>
@@ -182,7 +182,7 @@ export function FSPreview({ open, onClose, fsOutput, companyName, fyeDate }: Pro
 
         {/* ── 2. Profit & Loss ── */}
         <SectionHeader>2. Profit &amp; Loss (Statement of Comprehensive Income)</SectionHeader>
-        <p className="text-[10px] text-gray-500 mb-1">For the year ended {fmtDate(fyeDate)}</p>
+        <p className="text-[10px] text-muted-foreground mb-1">For the year ended {fmtDate(fyeDate)}</p>
 
         <SubHeader>Revenue</SubHeader>
         <LineItems items={pl.revenue_lines as LineItem[]} />
@@ -195,13 +195,13 @@ export function FSPreview({ open, onClose, fsOutput, companyName, fyeDate }: Pro
 
         {/* ── 3. Cash Flow ── */}
         <SectionHeader>3. Cash Flow Statement (Indirect Method)</SectionHeader>
-        <p className="text-[10px] text-gray-500 mb-1">For the year ended {fmtDate(fyeDate)}</p>
+        <p className="text-[10px] text-muted-foreground mb-1">For the year ended {fmtDate(fyeDate)}</p>
 
         <SubHeader>Operating Activities</SubHeader>
         <DataRow label="Net Profit" amount={ops.net_profit} />
-        <p className="text-[10px] text-gray-500 pl-3 mt-1">Adjustments for non-cash items:</p>
+        <p className="text-[10px] text-muted-foreground pl-3 mt-1">Adjustments for non-cash items:</p>
         <LineItems items={ops.adjustments as LineItem[]} />
-        <p className="text-[10px] text-gray-500 pl-3 mt-1">Changes in working capital:</p>
+        <p className="text-[10px] text-muted-foreground pl-3 mt-1">Changes in working capital:</p>
         <LineItems items={ops.working_capital_changes as LineItem[]} />
         <TotalRow label="Net Cash from Operating Activities" amount={ops.net_cash_from_operations} />
 
@@ -221,7 +221,7 @@ export function FSPreview({ open, onClose, fsOutput, companyName, fyeDate }: Pro
 
         {/* ── 4. Changes in Equity ── */}
         <SectionHeader>4. Statement of Changes in Equity</SectionHeader>
-        <p className="text-[10px] text-gray-500 mb-1">For the year ended {fmtDate(fyeDate)}</p>
+        <p className="text-[10px] text-muted-foreground mb-1">For the year ended {fmtDate(fyeDate)}</p>
 
         <SubHeader>Retained Earnings</SubHeader>
         <DataRow label="Opening balance" amount={re.opening} />
@@ -241,8 +241,8 @@ export function FSPreview({ open, onClose, fsOutput, companyName, fyeDate }: Pro
         <div className="space-y-3">
           {notes.map((note, i) => (
             <div key={i}>
-              <p className="text-[11px] font-semibold text-gray-900">{note.title}</p>
-              <p className="text-[11px] text-gray-700 mt-0.5 leading-snug">{note.content}</p>
+              <p className="text-[11px] font-semibold text-foreground">{note.title}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{note.content}</p>
             </div>
           ))}
         </div>
@@ -251,19 +251,19 @@ export function FSPreview({ open, onClose, fsOutput, companyName, fyeDate }: Pro
         {Object.keys(xbrl).length > 0 && (
           <>
             <SectionHeader>XBRL Tags Reference</SectionHeader>
-            <p className="text-[10px] text-gray-500 mb-1">ACRA BizFile+ taxonomy tag mapping (JSON only — full XBRL XML generation is a future feature).</p>
+            <p className="text-[10px] text-muted-foreground mb-1">ACRA BizFile+ taxonomy tag mapping (JSON only — full XBRL XML generation is a future feature).</p>
             <table className="w-full text-[10px] border-collapse">
               <thead>
-                <tr className="border-b border-gray-300">
-                  <th className="text-left py-0.5 pr-4 font-semibold text-gray-700">Key</th>
-                  <th className="text-left py-0.5 font-semibold text-gray-700">XBRL Tag</th>
+                <tr className="border-b">
+                  <th className="text-left py-0.5 pr-4 font-semibold text-muted-foreground">Key</th>
+                  <th className="text-left py-0.5 font-semibold text-muted-foreground">XBRL Tag</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(xbrl).map(([key, tag]) => (
-                  <tr key={key} className="border-b border-gray-100">
-                    <td className="py-px pr-4 text-gray-600 font-mono">{key}</td>
-                    <td className="py-px text-gray-800 font-mono">{tag}</td>
+                  <tr key={key} className="border-b">
+                    <td className="py-px pr-4 text-muted-foreground font-mono">{key}</td>
+                    <td className="py-px text-foreground font-mono">{tag}</td>
                   </tr>
                 ))}
               </tbody>

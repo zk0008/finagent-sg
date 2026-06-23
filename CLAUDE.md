@@ -68,6 +68,12 @@ Do not add anything anticipatory or "nice to have". If in doubt, ask.
 
 ---
 
+## Design System
+
+Before modifying or creating any UI component, read design-system/finagent-sg/MASTER.md and follow all colour, typography, spacing, and component rules. Check design-system/finagent-sg/pages/[page-name].md for page-specific overrides. Never deviate from the design system without explicit confirmation.
+
+---
+
 ## What NOT to do
 
 - No new Langfuse instrumentation until explicitly requested

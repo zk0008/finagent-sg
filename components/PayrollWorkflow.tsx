@@ -1033,11 +1033,11 @@ export function PayrollWorkflow({
                 <Separator />
 
                 {/* FWL reminder */}
-                <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2">
-                  <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                <div className="rounded-md border border-[#E8D9A8] bg-[#FBF3DE] px-3 py-2">
+                  <p className="text-xs font-medium text-[#B5841A]">
                     Foreign Worker Levy (FWL)
                   </p>
-                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                  <p className="text-xs text-[#B5841A] mt-0.5">
                     FWL is not computed automatically. If you have Work Permit or S Pass
                     holders, please refer to the MOM levy schedule for your sector and
                     compute the levy manually.
@@ -1060,11 +1060,11 @@ export function PayrollWorkflow({
           )}
 
           {finalised && (
-            <div className="rounded-md border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 px-4 py-3">
-              <p className="text-sm font-medium text-green-800 dark:text-green-200">
+            <div className="rounded-md border border-[#C8D9CE] bg-[#EAF1EC] px-4 py-3">
+              <p className="text-sm font-medium text-primary">
                 Payroll Finalised
               </p>
-              <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
+              <p className="text-xs text-primary mt-0.5">
                 This payroll run is locked. No further edits can be made.
               </p>
             </div>

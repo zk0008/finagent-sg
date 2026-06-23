@@ -48,7 +48,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { BottomNav } from "@/components/BottomNav";
+import { AppLayout } from "@/components/AppLayout";
 import { generateTrialBalanceFromReceipts } from "@/lib/receiptToTrialBalance";
 import type { TrialBalanceLine } from "@/lib/schemas";
 import type { ReceiptLineItem } from "@/app/api/receipts/extract/route";
@@ -81,28 +81,28 @@ function ConfidenceBadge({
 }) {
   if (confidence === "high") {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium status-success">
         High
       </span>
     );
   }
   if (confidence === "medium") {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium status-warning">
         Medium
       </span>
     );
   }
   if (confidence === "low") {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium status-error">
         Low
       </span>
     );
   }
   // "manual"
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-muted-foreground">
       Manual
     </span>
   );
@@ -261,7 +261,7 @@ function EditableReceiptTable({
                     key={item.id}
                     className={
                       isLowConf
-                        ? "bg-amber-50 hover:bg-amber-100/80"
+                        ? "bg-[#FBF3DE] hover:bg-[#FBF3DE]/80"
                         : undefined
                     }
                   >
@@ -637,19 +637,12 @@ export default function ReceiptsPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      {/* Header */}
-      <header className="px-4 sm:px-6 py-3 border-b bg-white flex items-center gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">
-          Receipt Segregation
-        </h1>
-        {period.trim() && (
-          <Badge variant="secondary" className="shrink-0">
-            {period.trim()}
-          </Badge>
-        )}
-      </header>
-
+    <AppLayout
+      pageTitle="Receipts"
+      headerRight={period.trim() ? (
+        <Badge variant="secondary" className="shrink-0">{period.trim()}</Badge>
+      ) : undefined}
+    >
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full flex flex-col gap-6">
 
         {/* ── Upload section ── */}
@@ -742,7 +735,7 @@ export default function ReceiptsPage() {
               Review and correct any field before confirming. Use Add Row to
               enter items manually.{" "}
               <span className="inline-flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-300" />
+                <span className="inline-block w-3 h-3 rounded bg-[#FBF3DE] border border-[#E8D9A8]" />
                 Amber rows have medium or low extraction confidence.
               </span>
             </p>
@@ -798,7 +791,7 @@ export default function ReceiptsPage() {
           {saveError   && <p className="text-sm text-destructive">{saveError}</p>}
           {exportError && <p className="text-sm text-destructive">{exportError}</p>}
           {saveSuccess && (
-            <p className="text-sm text-green-700 font-medium">
+            <p className="text-sm text-primary font-medium">
               Receipts saved successfully.
             </p>
           )}
@@ -825,7 +818,6 @@ export default function ReceiptsPage() {
         )}
       </main>
 
-      <BottomNav />
-    </div>
+    </AppLayout>
   );
 }
