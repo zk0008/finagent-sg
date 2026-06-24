@@ -47,6 +47,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { queryVectorStore, ingestToVectorStore } from "@/lib/vectorStore";
 import { getLangfuse, flushLangfuse } from "@/lib/langfuse";
 import { MODEL_ROUTES } from "@/lib/modelRouter";
+import { auth } from "@/auth";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
 import { writeVaultNote } from "@/lib/agents/vaultWriter";       // V3.1: vault notes for chat interactions
 import { getRecentVaultNotes } from "@/lib/agents/vaultReader";  // V3.1: prior-run context for LLM injection
@@ -134,7 +135,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { message, schemaName, output_id } = body;
 
-  if (!await verifySchemaAccess(schemaName)) {
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
+  if (!await verifySchemaAccess(schemaName, userId, userRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

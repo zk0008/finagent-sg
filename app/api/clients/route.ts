@@ -97,6 +97,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!session) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
+  const userId = session.user?.id as string | undefined;
 
   let body: z.infer<typeof CreateClientSchema>;
   try {
@@ -213,8 +214,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       audit_exempt: exemption.is_audit_exempt,
       schema_name: schemaName,
       entity_id: entity.id,
+      user_id: userId ?? null,
     })
-    .select("id, name, uen, company_type, fye_date, audit_exempt, schema_name, created_at")
+    .select("id, name, uen, company_type, fye_date, audit_exempt, schema_name, user_id, created_at")
     .single();
 
   if (registryError || !registered) {

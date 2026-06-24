@@ -32,6 +32,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import BigNumber from "bignumber.js";
 import { supabase } from "@/lib/supabaseClient";
+import { auth } from "@/auth";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
 import { applyTaxExemption } from "@/lib/taxEngine";
 import type { TaxComputationResult } from "@/lib/schemas";
@@ -75,7 +76,10 @@ export async function GET(
   }
 
   // Confirm the schema is registered in public.client_schemas before querying it
-  const allowed = await verifySchemaAccess(schemaName);
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
+  const allowed = await verifySchemaAccess(schemaName, userId, userRole);
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

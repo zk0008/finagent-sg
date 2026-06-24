@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { computeTax } from "@/lib/taxEngine";
 import { TaxComputationInputSchema } from "@/lib/schemas";
+import { auth } from "@/auth";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -50,8 +51,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Verify the caller has access to this client schema
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
   try {
-    await verifySchemaAccess(schemaName);
+    if (!await verifySchemaAccess(schemaName, userId, userRole)) {
+      return NextResponse.json({ error: "Schema not found or access denied" }, { status: 403 });
+    }
   } catch {
     return NextResponse.json({ error: "Schema not found or access denied" }, { status: 403 });
   }

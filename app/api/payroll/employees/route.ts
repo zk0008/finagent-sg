@@ -27,7 +27,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // Confirm schemaName is registered before touching any client data
-  const allowed = await verifySchemaAccess(schemaName);
+  const allowed = await verifySchemaAccess(schemaName, undefined, "admin");
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Confirm schemaName is registered before writing any employee record
-  const postAllowed = await verifySchemaAccess(schemaName);
+  const postAllowed = await verifySchemaAccess(schemaName, undefined, "admin");
   if (!postAllowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

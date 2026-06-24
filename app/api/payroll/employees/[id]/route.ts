@@ -46,7 +46,7 @@ export async function PUT(
   }
 
   // Confirm schemaName is registered before writing any employee record
-  const allowed = await verifySchemaAccess(schemaName);
+  const allowed = await verifySchemaAccess(schemaName, undefined, "admin");
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -106,7 +106,7 @@ export async function DELETE(
   }
 
   // Confirm schemaName is registered before deleting any employee record
-  const deleteAllowed = await verifySchemaAccess(schemaName);
+  const deleteAllowed = await verifySchemaAccess(schemaName, undefined, "admin");
   if (!deleteAllowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

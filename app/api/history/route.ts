@@ -28,6 +28,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import { auth } from "@/auth";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
 
 export type FSHistoryItem = {
@@ -75,7 +76,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "type must be fs | model | payroll | tax" }, { status: 400 });
   }
 
-  if (!await verifySchemaAccess(schemaName)) {
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
+  if (!await verifySchemaAccess(schemaName, userId, userRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -17,6 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateTaxComputationPDF } from "@/lib/taxPdfGenerator";
+import { auth } from "@/auth";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
 import type { TaxComputationResult } from "@/lib/schemas";
 import type { TaxPDFEntity } from "@/lib/taxPdfGenerator";
@@ -40,8 +41,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "schemaName, result, and entity are required" }, { status: 400 });
   }
 
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
   try {
-    await verifySchemaAccess(schemaName);
+    if (!await verifySchemaAccess(schemaName, userId, userRole)) {
+      return NextResponse.json({ error: "Schema not found or access denied" }, { status: 403 });
+    }
   } catch {
     return NextResponse.json({ error: "Schema not found or access denied" }, { status: 403 });
   }

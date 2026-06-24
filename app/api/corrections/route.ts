@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabaseClient";
+import { auth } from "@/auth";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -45,7 +46,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "schemaName query param is required" }, { status: 400 });
   }
 
-  if (!await verifySchemaAccess(schemaName)) {
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
+  if (!await verifySchemaAccess(schemaName, userId, userRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -96,7 +100,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
   const { id, schemaName, status } = body;
 
-  if (!await verifySchemaAccess(schemaName)) {
+  const patchSession = await auth();
+  const patchUserId = patchSession?.user?.id as string | undefined;
+  const patchUserRole = (patchSession?.user as { role?: string })?.role;
+  if (!await verifySchemaAccess(schemaName, patchUserId, patchUserRole)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

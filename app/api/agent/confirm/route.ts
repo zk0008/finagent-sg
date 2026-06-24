@@ -36,6 +36,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { auth } from "@/auth";
 import { verifySchemaAccess } from "@/lib/schemaAccess";
 import { supabase } from "@/lib/supabaseClient";
 import graph from "@/lib/agents/graph";
@@ -125,7 +126,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── Auth check ─────────────────────────────────────────────────────────────
   // Must run before any data writes — same guard used by all agent routes
-  const allowed = await verifySchemaAccess(clientId);
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
+  const allowed = await verifySchemaAccess(clientId, userId, userRole);
   if (!allowed) {
     return new Response(
       JSON.stringify({ error: "Forbidden" }),
@@ -312,15 +316,39 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── add_client ──────────────────────────────────────────────────────────────
   } else if (tool === "add_client") {
-    // Graceful redirect — do NOT call /api/clients or write any data here.
-    // Client creation requires manual steps (schema provisioning, financial setup)
-    // that are best done through the Clients tab in the left panel.
-    // The ConfirmationCard still shows the proposed action; clicking Confirm
-    // delivers this redirect message to the user instead of an HTTP call or error.
-    actionResult = {
-      success: true,
-      message: `Adding a new client requires a few steps that are best done through the Clients tab. Please go to the Clients tab in the left panel to add ${String(params.companyName)} manually. Once added, select the client and you can use the agent to run workflows for them.`,
-    };
+    // Forward the session cookie so /api/clients can call auth() and read the session.
+    const cookieHeader = req.headers.get("cookie") ?? "";
+
+    const clientRes = await fetch(`${APP_URL}/api/clients`, {
+      method:  "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Cookie":        cookieHeader,
+      },
+      body: JSON.stringify({
+        name:                       String(params.companyName ?? ""),
+        uen:                        String(params.uen ?? ""),
+        company_type:               String(params.company_type ?? "private_ltd"),
+        fye_date:                   String(params.fye_date ?? "2025-12-31"),
+        revenue:                    String(params.revenue ?? "0"),
+        total_assets:               String(params.total_assets ?? "0"),
+        employee_count:             typeof params.employee_count === "number" ? params.employee_count : 0,
+        shareholder_count:          typeof params.shareholder_count === "number" ? params.shareholder_count : 1,
+        has_corporate_shareholders: Boolean(params.has_corporate_shareholders ?? false),
+      }),
+    });
+
+    if (clientRes.status === 201) {
+      const data = await clientRes.json() as { client: { name: string; schema_name: string } };
+      actionResult = {
+        success:             true,
+        message:             `Client ${data.client.name} has been created. You can now select them and run workflows.`,
+        newClientSchemaName: data.client.schema_name,
+      };
+    } else {
+      const err = await clientRes.json() as { error?: string };
+      actionResult = { success: false, error: err.error ?? `HTTP ${clientRes.status}` };
+    }
 
   // ── configure_tax ───────────────────────────────────────────────────────────
   } else {

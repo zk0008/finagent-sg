@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS public.client_schemas (
   company_type TEXT NOT NULL DEFAULT 'private_ltd',
   fye_date     DATE NOT NULL,
   audit_exempt BOOLEAN NOT NULL DEFAULT FALSE,
+  user_id      UUID REFERENCES public.users(id),  -- Owner/creator; nullable (existing rows have no owner)
   schema_name  TEXT NOT NULL UNIQUE,              -- PostgreSQL schema name (e.g. "techsoft_pte_ltd")
   entity_id    UUID,                              -- References entities.id in the client schema
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()

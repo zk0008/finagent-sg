@@ -48,7 +48,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const schemaName = clientId;
 
   // Verify the schema exists and is registered — prevents arbitrary schema enumeration
-  const allowed = await verifySchemaAccess(schemaName);
+  const allowed = await verifySchemaAccess(schemaName, undefined, "admin");
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
