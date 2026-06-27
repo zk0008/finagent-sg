@@ -23,7 +23,7 @@ autonomous SaaS product for Singapore SMEs.
 | 4 | Stripe integration | 🚫 | Requires production branch |
 | 5 | Email/notification system | 🚫 | Depends on scheduled agent runs — deferred to production branch |
 | 6 | Auth hardening | ✅ | Email verification (Resend), password reset, rate limiting (4 routes), 7-day session expiry |
-| 7 | Error handling and retry logic | ⏳ | Transaction safety across all workflows, graceful recovery from failed API/LLM calls |
+| 7 | Error handling and retry logic | ✅ | Payroll atomicity + dedup, LLM retry (3 attempts), user-friendly error UX with retry button |
 
 ## TIER 2 — Growth
 
