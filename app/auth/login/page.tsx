@@ -76,7 +76,15 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <a
+                  href="/auth/forgot-password"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+                >
+                  Forgot password?
+                </a>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -89,7 +97,12 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <div className="space-y-1">
+                <p className="text-sm text-destructive">{error}</p>
+                <p className="text-xs text-muted-foreground">
+                  If you just registered, check your email for a verification link.
+                </p>
+              </div>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>

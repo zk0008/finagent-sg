@@ -14,6 +14,7 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { supabase } from "@/lib/supabaseClient";
+import { rateLimit } from "@/lib/rateLimit";
 
 // Zod schema for validating credentials at the NextAuth boundary
 const CredentialsSchema = z.object({
@@ -30,6 +31,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        // Rate limit by email — prevents brute-force without leaking account existence
+        const emailKey =
+          typeof credentials?.email === "string"
+            ? credentials.email.toLowerCase()
+            : "unknown";
+        const rl = rateLimit(`login:${emailKey}`, 5, 15 * 60 * 1000);
+        if (!rl.success) return null;
+
         const parsed = CredentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
@@ -38,7 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Look up the user in public.users
         const { data: user } = await supabase
           .from("users")
-          .select("id, email, name, role, password_hash")
+          .select("id, email, name, role, password_hash, email_verified")
           .eq("email", email)
           .maybeSingle();
 
@@ -47,6 +56,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Verify the password against the stored bcrypt hash
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return null;
+
+        // Reject unverified accounts — user must click the verification link first
+        if (!user.email_verified) return null;
 
         return {
           id: user.id,
@@ -57,7 +69,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 },  // 7 days
   callbacks: {
     // Persist id and role into the JWT token
     async jwt({ token, user }) {

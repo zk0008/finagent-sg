@@ -19,8 +19,9 @@ CREATE TABLE IF NOT EXISTS public.users (
   email          TEXT NOT NULL UNIQUE,
   name           TEXT NOT NULL,
   role           TEXT NOT NULL DEFAULT 'accountant', -- 'admin' | 'accountant'
-  password_hash  TEXT NOT NULL DEFAULT '',           -- bcryptjs hash, set on registration
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  password_hash   TEXT NOT NULL DEFAULT '',           -- bcryptjs hash (12 rounds), set on registration
+  email_verified  BOOLEAN NOT NULL DEFAULT FALSE,     -- true after user clicks verification link
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Phase 6 migration: add password_hash to existing users table if it doesn't exist.
@@ -369,3 +370,29 @@ CREATE INDEX IF NOT EXISTS knowledge_embeddings_embedding_idx
   ON knowledge_embeddings
   USING ivfflat (embedding vector_cosine_ops)
   WITH (lists = 100);
+
+-- ============================================================
+-- AUTH HARDENING — Token Tables (Phase V4, Item 6)
+-- ============================================================
+
+-- verification_tokens: One-time tokens sent by email to verify a user's address.
+-- Token is a securely generated random hex string. Expires after 24 hours.
+-- Deleted after successful verification.
+CREATE TABLE IF NOT EXISTS public.verification_tokens (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  token      TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- password_reset_tokens: One-time tokens sent by email to allow password reset.
+-- Token is a securely generated random hex string. Expires after 1 hour.
+-- Deleted after successful password reset.
+CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  token      TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
