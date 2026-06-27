@@ -27,6 +27,7 @@ import { GraphState } from "../state";
 import { writeVaultNote } from "@/lib/agents/vaultWriter";   // V3.1-A: writes a markdown run note to the local vault
 import { getRecentVaultNotes } from "@/lib/agents/vaultReader"; // V3.1-B: reads recent notes for context injection
 import { queryVectorStore, ingestToVectorStore } from "@/lib/vectorStore"; // V3.2 knowledge base query and correction ingestion
+import { retryFetch } from "@/lib/retryFetch";            // retry wrapper for internal HTTP calls
 
 // Shorthand: the full inferred state type from the LangGraph Annotation
 type State = typeof GraphState.State;
@@ -452,6 +453,8 @@ TOOL CALLING RULES — follow these strictly:
   // Synthesised answer from ragResults; populated after the tool call loop if RAG ran
   let ragContext = "";
 
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
   try {
     // ── Call GPT-4.1 with all 8 tools; LLM decides which ones to invoke ──────
     // maxSteps: 5 allows the model up to 5 sequential passes if it needs to
@@ -575,9 +578,17 @@ TOOL CALLING RULES — follow these strictly:
       });
       ragContext = ragAnswer.text;
     }
-
+    lastError = null;
+    break;
   } catch (err) {
-    // LLM call failed — disable all workers and record the error
+    lastError = err as Error;
+    if (attempt < 3) {
+      console.warn(`[managerNode] generateText attempt ${attempt} failed, retrying...`);
+      await new Promise(r => setTimeout(r, attempt * 1000));
+    }
+  }
+  }
+  if (lastError) {
     return {
       runFS:             false,
       runPayroll:        false,
@@ -585,7 +596,7 @@ TOOL CALLING RULES — follow these strictly:
       runFinancialModel: false,
       errors: {
         ...state.errors,
-        managerNode: `Failed to parse goal: ${(err as Error).message}`,
+        managerNode: `Failed to parse goal: ${lastError.message}`,
       },
     };
   }
@@ -643,7 +654,7 @@ TOOL CALLING RULES — follow these strictly:
 export async function financialStatementNode(state: State): Promise<NodeReturn> {
   try {
     // POST to the thin wrapper route; it handles all Supabase lookups internally
-    const res = await fetch(`${APP_URL}/api/financial-statements/generate`, {
+    const res = await retryFetch(`${APP_URL}/api/financial-statements/generate`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
@@ -697,7 +708,7 @@ export async function financialStatementNode(state: State): Promise<NodeReturn> 
  */
 export async function payrollNode(state: State): Promise<NodeReturn> {
   try {
-    const res = await fetch(`${APP_URL}/api/payroll/process`, {
+    const res = await retryFetch(`${APP_URL}/api/payroll/process`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
@@ -825,7 +836,7 @@ export async function taxNode(state: State): Promise<NodeReturn> {
   try {
     // The /api/tax/agent route is a new thin wrapper; the existing /api/tax/compute
     // is preserved unchanged for the UI's TaxWorkflow component
-    const res = await fetch(`${APP_URL}/api/tax/agent`, {
+    const res = await retryFetch(`${APP_URL}/api/tax/agent`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
@@ -945,7 +956,7 @@ export async function financialModelNode(state: State): Promise<NodeReturn> {
   }
 
   try {
-    const res = await fetch(`${APP_URL}/api/financial-model/generate`, {
+    const res = await retryFetch(`${APP_URL}/api/financial-model/generate`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({

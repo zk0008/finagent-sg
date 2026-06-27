@@ -131,6 +131,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // ── Step 3b: Duplicate-run guard ─────────────────────────────────────────
+  // Block a second insert for the same entity + pay period before touching the DB.
+  const { data: existingRun } = await supabase
+    .schema(schemaName)
+    .from("payroll_runs")
+    .select("id")
+    .eq("entity_id", entityId)
+    .eq("run_month", payrollMonthDate)
+    .maybeSingle();
+
+  if (existingRun) {
+    return NextResponse.json(
+      { error: "A payroll run for this period already exists." },
+      { status: 409 }
+    );
+  }
+
   // ── Step 4: Save payroll_run row to Supabase ──────────────────────────────
   const { data: runData, error: runError } = await supabase
     .schema(schemaName)
@@ -171,6 +188,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select("id, employee_id");
 
   if (payslipError) {
+    await supabase
+      .schema(schemaName)
+      .from("payroll_runs")
+      .delete()
+      .eq("id", payrollRunId);
+    console.error("[payroll] Payslip insert failed, cleaned up orphaned payroll_runs row:", payrollRunId);
     return NextResponse.json(
       { error: `Failed to save payslips: ${payslipError.message}` },
       { status: 500 }

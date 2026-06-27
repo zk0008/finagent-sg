@@ -37,6 +37,7 @@
 
 import { useEffect, useRef, useState } from "react"; // useEffect added for outside-click listener
 import { useSession } from "next-auth/react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -200,6 +201,12 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
   // True while the SSE stream from /api/agent is still open
   const [isAgentRunning, setIsAgentRunning] = useState(false);
 
+  // Set when graph:error fires — keeps AgentProgressPanel mounted so node error details stay visible
+  const [agentError, setAgentError] = useState<string | null>(null);
+
+  // True after a graph:error or network error — drives the Retry button
+  const [showRetry, setShowRetry] = useState(false);
+
   // Pending write action proposed by the agent — set by action:confirmation_required
   // SSE event; cleared when the user clicks Confirm or Cancel, or sends a new message.
   const [pendingAction, setPendingAction] = useState<{
@@ -222,6 +229,9 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
   const [agentPayrollYear,          setAgentPayrollYear]          = useState<number | undefined>(undefined);
   const [agentYearOfAssessment,     setAgentYearOfAssessment]     = useState<string | undefined>(undefined);
   const [agentProjectionPeriodYears, setAgentProjectionPeriodYears] = useState<number | undefined>(undefined);
+
+  // Stores the last goal sent to /api/agent so the Retry button can re-send it
+  const lastGoalRef = useRef<string>("");
 
   // Hidden file input — triggered programmatically when the button is clicked
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -292,8 +302,8 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
    * to drive AgentProgressPanel. Otherwise falls through to the existing
    * POST /api/chat RAG chatbot — no change to that path.
    */
-  async function handleSend() {
-    const message = inputValue.trim();
+  async function handleSend(explicitMessage?: string) {
+    const message = (explicitMessage ?? inputValue).trim();
     if (!message || isSending) return;
 
     // Show the user's message in the chat immediately regardless of route
@@ -306,6 +316,8 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
     setAgentMissingInputs([]);
     setAgentSummary(null);
     setIsAgentRunning(false);
+    setAgentError(null);
+    setShowRetry(false);
     // Also clear any outstanding confirmation card — a new message supersedes it
     setPendingAction(null);
     setIsConfirmationLoading(false);
@@ -348,6 +360,9 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
       setAgentNodes(initialNodes);
       setIsAgentRunning(true);
 
+      // Record goal for the Retry button so it can re-send the same message on error
+      lastGoalRef.current = message;
+
       // Preserve goal + temporal params so handleConfirm can re-invoke the graph
       // with the same context after the user confirms an action tool call.
       setAgentGoal(message);
@@ -378,9 +393,10 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
         });
 
         if (!response.ok || !response.body) {
-          // Non-2xx before the stream even opens — show as a chat error
-          appendMessage("system", `❌ Agent error: HTTP ${response.status}`);
+          console.error("[agent] HTTP error before stream:", response.status);
+          appendMessage("system", "❌ Something went wrong while running your request. Please try again.");
           setIsAgentRunning(false);
+          setShowRetry(true);
           return;
         }
 
@@ -413,14 +429,18 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
             // executedAction not present on the initial agent route — no action needed here
           },
           onGraphError: (error) => {
-            appendMessage("system", `❌ Agent error: ${error}`);
+            console.error("[agent] graph:error:", error);
+            appendMessage("system", "❌ Something went wrong. Please try again.");
             setIsAgentRunning(false);
+            setAgentError(error);
+            setShowRetry(true);
           },
         });
 
       } catch {
-        appendMessage("system", "❌ Network error — could not reach /api/agent.");
+        appendMessage("system", "❌ Could not reach the server. Please check your connection and try again.");
         setIsAgentRunning(false);
+        setShowRetry(true);
       } finally {
         setIsSending(false);
       }
@@ -514,10 +534,11 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
       });
 
       if (!res.ok || !res.body) {
-        // Non-2xx before the stream opens (action execution failed)
         const result = await res.json() as { error?: string };
-        appendMessage("system", `❌ Confirm error: ${result.error ?? "Unknown error"}`);
+        console.error("[agent/confirm] HTTP error:", result.error);
+        appendMessage("system", "❌ Something went wrong while running your request. Please try again.");
         setIsAgentRunning(false);
+        setShowRetry(true);
         return;
       }
 
@@ -567,14 +588,18 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
           }
         },
         onGraphError: (error) => {
-          appendMessage("system", `❌ Agent error: ${error}`);
+          console.error("[agent/confirm] graph:error:", error);
+          appendMessage("system", "❌ Something went wrong. Please try again.");
           setIsAgentRunning(false);
+          setAgentError(error);
+          setShowRetry(true);
         },
       });
 
     } catch {
-      appendMessage("system", "❌ Network error — could not reach /api/agent/confirm.");
+      appendMessage("system", "❌ Could not reach the server. Please check your connection and try again.");
       setIsAgentRunning(false);
+      setShowRetry(true);
     } finally {
       setIsConfirmationLoading(false);
     }
@@ -665,7 +690,7 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
             is unchanged; AgentProgressPanel is a sibling after the .map(). */}
         {/* Also render when missingInputs is set — covers the no-client-selected
             guard which sets missingInputs without starting an agent run */}
-        {(isAgentRunning || agentSummary !== null || agentMissingInputs.length > 0) && (
+        {(isAgentRunning || agentSummary !== null || agentMissingInputs.length > 0 || agentError !== null || agentNodes.some((n) => n.status === "error")) && (
           <AgentProgressPanel
             nodes={agentNodes}
             missingInputs={agentMissingInputs}
@@ -685,6 +710,23 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
             onCancel={handleCancel}
             isLoading={isConfirmationLoading}
           />
+        )}
+
+        {/* ── Retry button ──────────────────────────────────────────────────
+            Shown after graph:error or network error when a prior goal is stored.
+            Re-sends the last agent goal without requiring the user to retype it. */}
+        {showRetry && lastGoalRef.current && (
+          <div className="flex justify-center mt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleSend(lastGoalRef.current)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-150 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </div>
         )}
       </div>
 
@@ -771,7 +813,7 @@ export function ChatbotPanel({ schemaName = "default", clientSelected = false, o
           </div>
 
           <Button
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={isSending || !inputValue.trim()}
             className="self-end min-h-[44px]"
           >
