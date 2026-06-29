@@ -29,7 +29,7 @@ autonomous SaaS product for Singapore SMEs.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 8 | Client dashboard | ⏳ | Overview screen — deadlines, recent runs, financial snapshot |
+| 8 | Client dashboard | ✅ | Dashboard at /, workflows moved to /workflows, compliance deadlines, activity overview, auto-resolve company |
 | 9 | Document management | ⏳ | Persistent store for receipts, invoices, bank statements |
 | 10 | IRAS integration prep | ⏳ | Align data formats for Form C-S, CPF submission |
 | 11 | Audit trail | ⏳ | Surface agent actions in client-friendly view |
