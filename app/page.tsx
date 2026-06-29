@@ -1,101 +1,333 @@
 /**
  * app/page.tsx
  *
- * Main page for FinAgent-SG.
+ * Client dashboard — the home page after login.
  *
- * Layout: Two-panel split layout.
- * - Left panel: Workflow (task selector, file upload, config, generate, progress, output)
- * - Right panel: Training & Feedback Chatbot
- * - Bottom: Navigation bar
+ * Fetches GET /api/dashboard on mount to resolve the user's company and load
+ * compliance deadlines, recent activity, and key metrics in a single request.
  *
- * Phase 5: schemaName is lifted here so ChatbotPanel writes corrections to the
- * same client schema that WorkflowPanel is working on.
- * Phase 6: Header shows logged-in user name + Sign Out button.
+ * States:
+ *   loading  — skeleton placeholders while the API call is in flight
+ *   no company — welcome card directing the user to /clients to set up
+ *   company found — full dashboard: company info, deadlines, overview, quick actions
  */
 
 "use client";
 
-import { useState } from "react";
-import { useSession, signOut } from "next-auth/react";
-import { WorkflowPanel } from "@/components/WorkflowPanel";
-import { ChatbotPanel } from "@/components/ChatbotPanel";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/AppLayout";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  FileText,
+  Users,
+  Calculator,
+  TrendingUp,
+  UserPlus,
+  Building2,
+} from "lucide-react";
 
-export default function HomePage() {
-  const { data: session } = useSession();
+// ── Types ────────────────────────────────────────────────────────────────────
 
-  // Defaults to techsoft_pte_ltd so corrections work before a company name is typed.
-  // Updates in real time as the user types in the Company Name field.
-  const [schemaName, setSchemaName] = useState("techsoft_pte_ltd");
+type CPFStatus      = "upcoming" | "overdue" | "completed";
+type DeadlineStatus = "upcoming" | "overdue";
 
-  // Tracks whether the user has made an explicit client selection this session.
-  // Starts false so the agent cannot silently run against the default schema.
-  // Becomes true the first time WorkflowPanel calls onSchemaNameChange (either
-  // dropdown pick or company name typed), and stays true for the rest of the session.
-  const [clientSelected, setClientSelected] = useState(false);
+type DeadlineItem = { label: string; date: string; status: DeadlineStatus };
+type CPFDeadlineItem = { label: string; date: string; status: CPFStatus };
 
-  // Stores run IDs produced by the most recent agent graph execution.
-  // Each entry tells a workflow component which Supabase row to auto-load.
-  // Reset to [] whenever the active client changes (different client = stale run IDs).
-  const [agentCompletedRuns, setAgentCompletedRuns] = useState<
-    Array<{ workflow: string; runId: string }>
-  >([]);
+type DashboardData = {
+  company: { name: string; uen: string; schema_name: string; fye_date: string } | null;
+  fiscalYear: { start_date: string; end_date: string; status: string } | null;
+  deadlines: {
+    cpf:    CPFDeadlineItem;
+    eci:    DeadlineItem;
+    formCS: DeadlineItem;
+    acra:   DeadlineItem;
+  } | null;
+  latestFS:      { id: string; created_at: string; fiscal_year_id: string } | null;
+  latestPayroll: { id: string; run_month: string; status: string; created_at: string } | null;
+  latestTax:     { id: string; year_of_assessment: number; form_type: string; tax_payable: number; created_at: string } | null;
+  activeModel:   { id: string; model_name: string; projection_years: number } | null;
+  employeeCount: number;
+};
 
-  // Called by ChatbotPanel when the agent graph:complete SSE event fires.
-  // Filters out any entries with an empty runId (failed nodes return no ID).
-  function handleAgentComplete(runs: Array<{ workflow: string; runId: string }>) {
-    setAgentCompletedRuns(runs.filter((r) => !!r.runId));
+// ── Date helpers ─────────────────────────────────────────────────────────────
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// "2025-12-31" → "31 Dec 2025"
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${MONTHS[m - 1]} ${y}`;
+}
+
+// "2025-12-01" → "Dec 2025"
+function formatMonth(iso: string): string {
+  const [y, m] = iso.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${y}`;
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function DeadlineBadge({ status }: { status: CPFStatus | DeadlineStatus }) {
+  const styles: Record<string, string> = {
+    upcoming:  "bg-[#FBF3DE] text-[#B5841A]",
+    overdue:   "bg-[#F8EDEC] text-[#9B3A3A]",
+    completed: "bg-[#EAF1EC] text-[#3D6B52]",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${styles[status] ?? styles.upcoming}`}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+function FYStatusBadge({ status }: { status: string }) {
+  const s = status.toLowerCase();
+  const styles =
+    s === "final" || s === "closed"
+      ? "bg-[#EAF1EC] text-[#3D6B52]"
+      : s === "draft"
+      ? "bg-[#FBF3DE] text-[#B5841A]"
+      : "bg-[#EFECE6] text-[#6B6560]";
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${styles}`}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+function SummaryCard({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-card border border-border rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
+        <span className="text-xs font-medium text-muted-foreground">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Loading skeleton ─────────────────────────────────────────────────────────
+
+function LoadingSkeleton() {
+  return (
+    <div className="p-6 space-y-6">
+      <div className="space-y-2">
+        <div className="h-5 w-48 bg-secondary animate-pulse rounded-md" />
+        <div className="h-4 w-32 bg-secondary animate-pulse rounded-md" />
+      </div>
+      <div className="space-y-3">
+        <div className="h-5 w-44 bg-secondary animate-pulse rounded-md" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[0,1,2,3].map((i) => (
+            <div key={i} className="h-24 bg-secondary animate-pulse rounded-lg" />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="h-5 w-24 bg-secondary animate-pulse rounded-md" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[0,1,2,3,4].map((i) => (
+            <div key={i} className="h-24 bg-secondary animate-pulse rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page component ───────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
+  const router                = useRouter();
+  const [data, setData]       = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard")
+      .then((r) => r.json())
+      .then((json: DashboardData) => setData(json))
+      .catch(() => setData({ company: null, fiscalYear: null, deadlines: null, latestFS: null, latestPayroll: null, latestTax: null, activeModel: null, employeeCount: 0 }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // ── Loading ─────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <AppLayout pageTitle="Dashboard">
+        <LoadingSkeleton />
+      </AppLayout>
+    );
   }
 
-  return (
-    <AppLayout
-      pageTitle="Dashboard"
-      headerRight={
-        <div className="flex items-center gap-3">
-          {session?.user?.name && (
-            <span className="text-sm text-muted-foreground">
-              {session.user.name}
-            </span>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => signOut({ callbackUrl: "/auth/login" })}
-          >
-            Sign out
-          </Button>
+  // ── No company — pre-onboarding welcome ─────────────────────────────────────
+  if (!data?.company) {
+    return (
+      <AppLayout pageTitle="Dashboard">
+        <div className="flex flex-1 items-center justify-center p-6">
+          <div className="bg-card border border-border rounded-lg p-8 text-center max-w-sm w-full">
+            <Building2 className="w-8 h-8 text-muted-foreground mx-auto mb-4" strokeWidth={1.5} />
+            <h2 className="text-lg font-semibold text-foreground mb-2">Welcome to FinAgent-SG</h2>
+            <p className="text-sm text-muted-foreground mb-6">Set up your company to get started</p>
+            <Link
+              href="/clients"
+              className={buttonVariants({ className: "w-full justify-center cursor-pointer" })}
+            >
+              Set up company
+            </Link>
+          </div>
         </div>
-      }
-    >
-      {/* Main two-panel area */}
-      <main className="flex flex-1 overflow-hidden flex-col md:flex-row">
-        {/* Left: Workflow panel */}
-        <div className="w-full md:w-1/2 border-b md:border-b-0 md:border-r overflow-y-auto">
-          <WorkflowPanel
-            onSchemaNameChange={(name) => {
-              setSchemaName(name);           // update the active client schema
-              setClientSelected(true);       // mark that the user made an explicit selection
-              setAgentCompletedRuns([]);     // stale run IDs from a previous client are no longer valid
-            }}
-            agentCompletedRuns={agentCompletedRuns}  // signals which workflow to auto-load
-          />
+      </AppLayout>
+    );
+  }
+
+  const { company, fiscalYear, deadlines, latestFS, latestPayroll, latestTax, activeModel, employeeCount } = data;
+
+  // Flatten deadlines into an ordered array for the grid
+  const deadlineItems = deadlines
+    ? [deadlines.cpf, deadlines.eci, deadlines.formCS, deadlines.acra]
+    : [];
+
+  return (
+    <AppLayout pageTitle="Dashboard">
+      <div className="p-6 space-y-6">
+
+        {/* ── TOP BAR — Company info ──────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">{company.name}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{company.uen}</p>
+          </div>
+          {fiscalYear && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {formatDate(fiscalYear.start_date)} — {formatDate(fiscalYear.end_date)}
+              </span>
+              <FYStatusBadge status={fiscalYear.status} />
+            </div>
+          )}
         </div>
 
-        {/* Right: Chatbot panel */}
-        <div className="w-full md:w-1/2 overflow-y-auto min-h-64 md:min-h-0">
-          <ChatbotPanel
-            schemaName={schemaName}
-            clientSelected={clientSelected}
-            onAgentComplete={handleAgentComplete}  // called when graph:complete fires with completedRuns
-            onClientCreated={(newSchemaName) => {
-              setSchemaName(newSchemaName);    // switch WorkflowPanel to the newly created client
-              setClientSelected(true);         // mark explicit selection so agent can run immediately
-              setAgentCompletedRuns([]);       // clear any stale run IDs from the previous client
-            }}
-          />
-        </div>
-      </main>
+        {/* ── COMPLIANCE DEADLINES ────────────────────────────────────────────── */}
+        {deadlineItems.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-3">Compliance Deadlines</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {deadlineItems.map((item) => (
+                <div key={item.label} className="bg-card border border-border rounded-lg p-4">
+                  <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                  <p className="text-sm font-medium text-foreground mt-1">{formatDate(item.date)}</p>
+                  <div className="mt-2">
+                    <DeadlineBadge status={item.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── OVERVIEW ────────────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-3">Overview</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+            {/* Financial Statements */}
+            <SummaryCard icon={FileText} title="Financial Statements">
+              {latestFS ? (
+                <>
+                  <p className="text-sm font-medium text-foreground">{formatDate(latestFS.created_at.slice(0, 10))}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Last generated</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">No statements generated</p>
+                  <p className="text-xs text-muted-foreground mt-1">Upload a trial balance to get started</p>
+                </>
+              )}
+            </SummaryCard>
+
+            {/* Payroll */}
+            <SummaryCard icon={Users} title="Payroll">
+              {latestPayroll ? (
+                <>
+                  <p className="text-sm font-medium text-foreground">{formatMonth(latestPayroll.run_month)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Status: {latestPayroll.status}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">No payroll runs</p>
+                  <p className="text-xs text-muted-foreground mt-1">Run payroll via the Workflows page</p>
+                </>
+              )}
+            </SummaryCard>
+
+            {/* Corporate Tax */}
+            <SummaryCard icon={Calculator} title="Corporate Tax">
+              {latestTax ? (
+                <>
+                  <p className="text-sm font-medium text-foreground font-mono">
+                    SGD {latestTax.tax_payable.toLocaleString("en-SG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    YA {latestTax.year_of_assessment} · {latestTax.form_type}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">No tax computations</p>
+                  <p className="text-xs text-muted-foreground mt-1">Complete your financial statements first</p>
+                </>
+              )}
+            </SummaryCard>
+
+            {/* Financial Model */}
+            <SummaryCard icon={TrendingUp} title="Financial Model">
+              {activeModel ? (
+                <>
+                  <p className="text-sm font-medium text-foreground">{activeModel.model_name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{activeModel.projection_years}-year projection</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-foreground">No active model</p>
+                  <p className="text-xs text-muted-foreground mt-1">Build a model via the Workflows page</p>
+                </>
+              )}
+            </SummaryCard>
+
+            {/* Employees */}
+            <SummaryCard icon={UserPlus} title="Employees">
+              <p className="text-sm font-medium text-foreground font-mono">{employeeCount}</p>
+              <p className="text-xs text-muted-foreground mt-1">Registered employees</p>
+            </SummaryCard>
+
+          </div>
+        </section>
+
+        {/* ── QUICK ACTIONS ───────────────────────────────────────────────────── */}
+        <section className="flex flex-wrap items-center gap-4">
+          <Button onClick={() => router.push("/workflows")} className="cursor-pointer">
+            Run Workflow
+          </Button>
+          {!latestFS && (
+            <p className="text-sm text-muted-foreground">
+              Upload a trial balance to generate financial statements
+            </p>
+          )}
+        </section>
+
+      </div>
     </AppLayout>
   );
 }

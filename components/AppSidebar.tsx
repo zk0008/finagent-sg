@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Zap,
   Building2,
   Receipt,
   Clock,
@@ -24,6 +25,7 @@ import {
 
 const NAV_ITEMS = [
   { label: "Dashboard",   href: "/",            Icon: LayoutDashboard },
+  { label: "Workflows",   href: "/workflows",   Icon: Zap },
   { label: "Clients",     href: "/clients",     Icon: Building2 },
   { label: "Receipts",    href: "/receipts",    Icon: Receipt },
   { label: "History",     href: "/history",     Icon: Clock },

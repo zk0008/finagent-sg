@@ -33,7 +33,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";  // NextAuth v5 session helper — used to guard POST
+import { auth } from "@/auth";  // NextAuth v5 session helper — used to guard GET and POST
 import { supabase } from "@/lib/supabaseClient";
 import { generateSchemaName } from "@/lib/schemaUtils";
 import { checkExemption } from "@/lib/exemptionChecker";
@@ -72,10 +72,22 @@ const CreateClientSchema = z.object({
 // ── GET ───────────────────────────────────────────────────────────────────────
 
 export async function GET(): Promise<NextResponse> {
-  const { data, error } = await supabase
+  const session = await auth();
+  const userId   = session?.user?.id as string | undefined;
+  const userRole = (session?.user as { role?: string })?.role;
+  const isAdmin  = userRole === "admin";
+
+  let query = supabase
     .from("client_schemas")
     .select("id, name, uen, company_type, fye_date, audit_exempt, schema_name, created_at")
     .order("created_at", { ascending: false });
+
+  // Admins see all clients; everyone else is scoped to their own companies
+  if (!isAdmin) {
+    query = query.eq("user_id", userId ?? "");
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json(
